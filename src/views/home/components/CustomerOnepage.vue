@@ -7,12 +7,9 @@
       </div>
       <p class="card-content">{{ section.content }}</p>
       <div class="card-tags">
-        <span
-          v-for="tag in section.tags"
-          :key="tag.text"
-          class="tag"
-          :class="'tag-' + tag.type"
-        >{{ tag.text }}</span>
+        <span v-for="tag in section.tags" :key="tag.text" class="tag" :class="'tag-' + tag.type">{{
+          tag.text
+        }}</span>
       </div>
     </div>
   </div>
@@ -29,8 +26,8 @@ const detailSections = [
       { text: '国家专精特新\"小巨人\"', type: 'blue' },
       { text: '省级企业技术中心', type: 'yellow' },
       { text: '核心技术国产替代', type: 'green' },
-      { text: 'MQ硅树脂销量翻倍', type: 'red' },
-    ],
+      { text: 'MQ硅树脂销量翻倍', type: 'red' }
+    ]
   },
   {
     title: '股权结构',
@@ -40,8 +37,8 @@ const detailSections = [
     tags: [
       { text: '股权结构清晰', type: 'yellow' },
       { text: '法人独资子公司', type: 'blue' },
-      { text: '无实际控制', type: 'red' },
-    ],
+      { text: '无实际控制', type: 'red' }
+    ]
   },
   {
     title: '经营状况分析',
@@ -51,20 +48,21 @@ const detailSections = [
     tags: [
       { text: '冰芯冷却液', type: 'green' },
       { text: '销量增长显著', type: 'yellow' },
-      { text: '智改数转', type: 'blue' },
-    ],
+      { text: '智改数转', type: 'blue' }
+    ]
   },
   {
     title: '核心竞争力',
     updateTime: '05:28:23',
     content:
       '公司主要生产全氟聚醚油(E)、环保型含氣表面活性剂(FSA)、MQ硅树脂(MQ)。全氟聚醚油(PEPF)设计产能300吨/年，该产品每年可为企业带来的收入为:8t*65w/t*12月=6240W年...',
-    tags: [{ text: 'MQ硅树脂(MQ)', type: 'green' }],
-  },
+    tags: [{ text: 'MQ硅树脂(MQ)', type: 'green' }]
+  }
 ]
 </script>
 
 <style scoped>
+/* Figma 1-761 内容区：gap 10px、卡片白底圆角 6px */
 .detail-cards {
   flex: 1;
   min-height: 0;
@@ -74,7 +72,7 @@ const detailSections = [
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 10px;
 }
 
 .detail-card {
@@ -90,7 +88,7 @@ const detailSections = [
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .card-title {
@@ -137,6 +135,7 @@ const detailSections = [
   white-space: nowrap;
 }
 
+/* Figma 标签色：蓝/黄/绿/红/灰/蓝底白字选中 */
 .tag-blue {
   background: #ebefff;
   color: #4f78ff;
@@ -156,5 +155,14 @@ const detailSections = [
   background: #fcebef;
   color: #fe635d;
 }
-</style>
 
+.tag-gray {
+  background: #f5f5f5;
+  color: #595959;
+}
+
+.tag-blue-solid {
+  background: #2036ca;
+  color: #fff;
+}
+</style>

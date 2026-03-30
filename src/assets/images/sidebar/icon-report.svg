@@ -1,0 +1,6 @@
+<svg viewBox="0 0 25 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M15.64 2.6L20.95 6.36C23.26 7.99 23.67 10.34 22.04 12.64L18.29 17.95C16.65 20.26 14.3 20.67 11.99 19.03L6.69 15.28C4.38 13.65 3.97 11.3 5.6 9L9.36 3.68C10.98 1.37 13.33 0.97 15.64 2.6Z" fill="url(#reportGrad)"/>
+<path d="M5.23 6.25H12.78C14.37 6.25 15.6 6.72 16.44 7.56C17.28 8.4 17.75 9.64 17.75 11.23V18.77C17.75 20.36 17.28 21.6 16.44 22.44C15.6 23.28 14.36 23.75 12.77 23.75H5.23C3.64 23.75 2.4 23.28 1.56 22.44C0.72 21.6 0.25 20.35 0.25 18.76V11.23C0.25 9.64 0.72 8.4 1.56 7.56C2.4 6.72 3.64 6.25 5.23 6.25Z" fill="#7DB0FF" fill-opacity="0.4" stroke="white" stroke-width="0.5"/>
+<rect x="11" y="12" width="2" height="7" rx="1" transform="rotate(45 11 12)" fill="white"/>
+<defs><linearGradient id="reportGrad" x1="15.53" y1="21.53" x2="2.75" y2="9.94"><stop stop-color="#2D64F9"/><stop offset="1" stop-color="#5781FF"/></linearGradient></defs>
+</svg>

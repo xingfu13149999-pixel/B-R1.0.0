@@ -26,6 +26,6 @@ export const useAppStore = defineStore('app', () => {
     selectedCustomerId,
     toggleDarkMode,
     setCustomerType,
-    setSelectedCustomer,
+    setSelectedCustomer
   }
 })

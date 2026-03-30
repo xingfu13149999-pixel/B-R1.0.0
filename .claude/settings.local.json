@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(cursor:*)",
+      "Read(//c/Users/LR/Desktop/ai_dome/ai_dome/admin/$APPDATA/**)",
+      "Read(//c/Users/LR/AppData/Roaming/Cursor/**)",
+      "Bash(ls -la ~/AppData/Roaming/Cursor/User/keybindings*)",
+      "Skill(update-config)",
+      "mcp__Framelink_MCP_for_Figma__get_figma_data",
+      "mcp__Framelink_MCP_for_Figma__download_figma_images",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(tasklist)",
+      "Bash(findstr /i node)",
+      "Bash(taskkill //F //PID 1085 1077 1075 1148 1140 1138 1118 1110 1108)",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(npm install:*)",
+      "Bash(node -e \"const v = require\\(''eslint-plugin-vue''\\); console.log\\(Object.keys\\(v.configs\\)\\)\")",
+      "WebFetch(domain:www.figma.com)",
+      "mcp__filesystem__list_directory",
+      "mcp__filesystem__read_text_file",
+      "Bash(curl -I https://www.figma.com)",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__take_screenshot",
+      "Bash(curl -s http://localhost:5173)",
+      "mcp__chrome-devtools__select_page"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "Framelink MCP for Figma"
+  ]
+}

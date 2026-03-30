@@ -1,0 +1,10 @@
+<svg viewBox="0 0 22 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M7.4217 0H2C0.895431 0 0 0.895431 0 2V14C0 15.1046 0.89543 16 2 16H20C21.1046 16 22 15.1046 22 14V4.52632C22 3.42175 21.1046 2.52632 20 2.52632H11.645C11.1245 2.52632 10.6245 2.32342 10.2512 1.96071L8.81544 0.565607C8.44215 0.2029 7.94217 0 7.4217 0Z" fill="url(#doc-folder-grad)"/>
+<path d="M3.59998 6.05264H8.23331" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+<defs>
+<linearGradient id="doc-folder-grad" x1="11" y1="0" x2="11" y2="16" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FFF1A2"/>
+<stop offset="1" stop-color="#F9C666"/>
+</linearGradient>
+</defs>
+</svg>

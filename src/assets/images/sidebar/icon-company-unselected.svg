@@ -1,0 +1,8 @@
+<svg viewBox="0 0 19 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M19 9.05C19 8.25 19 7.85 18.77 7.57C18.54 7.3 18.14 7.22 17.36 7.08L10.91 5.91C9.82 5.71 9.27 5.61 8.91 5.91C8.55 6.21 8.55 6.76 8.55 7.87V18C8.55 18.94 8.55 19.41 8.84 19.71C9.14 20 9.61 20 10.55 20H17C17.94 20 18.41 20 18.71 19.71C19 19.41 19 18.94 19 18V9.05Z" fill="url(#companyUnselGrad)"/>
+<path d="M2 0.25H10.35C10.83 0.25 11.16 0.25 11.41 0.28C11.66 0.32 11.79 0.38 11.88 0.47C11.97 0.56 12.03 0.69 12.07 0.94C12.1 1.19 12.1 1.52 12.1 2V19.75H2C1.52 19.75 1.19 19.75 0.94 19.72C0.69 19.68 0.56 19.62 0.47 19.53C0.38 19.44 0.32 19.31 0.28 19.06C0.25 18.81 0.25 18.48 0.25 18V2C0.25 1.52 0.25 1.19 0.28 0.94C0.32 0.69 0.38 0.56 0.47 0.47C0.56 0.38 0.69 0.32 0.94 0.28C1.19 0.25 1.52 0.25 2 0.25Z" fill="#5B9BFF" fill-opacity="0.5" stroke="#2F63FF" stroke-width="0.5"/>
+<path d="M2.85 9.52H4.9M2.85 12.38H4.9M2.85 15.24H4.9M7.45 9.52H9.5M7.45 12.38H9.5M7.45 15.24H9.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M2.85 6.67H4.9M7.45 6.67H9.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M2.85 3.81H4.9M7.45 3.81H9.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+<defs><linearGradient id="companyUnselGrad" x1="10.12" y1="2.86" x2="21.04" y2="4.69"><stop stop-color="#73BCFF"/><stop offset="1" stop-color="#3366FF"/></linearGradient></defs>
+</svg>
