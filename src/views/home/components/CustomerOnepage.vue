@@ -1,4 +1,5 @@
 <template>
+  <!-- 客户首页「一页纸」：仅客户维度卡片（项目页见独立路由 ProjectHome + ProjectOnepage） -->
   <div class="detail-cards">
     <div v-for="section in detailSections" :key="section.title" class="detail-card">
       <div class="card-top-row">
@@ -62,7 +63,6 @@ const detailSections = [
 </script>
 
 <style scoped>
-/* Figma 1-761 内容区：gap 10px、卡片白底圆角 6px */
 .detail-cards {
   flex: 1;
   min-height: 0;
@@ -135,7 +135,6 @@ const detailSections = [
   white-space: nowrap;
 }
 
-/* Figma 标签色：蓝/黄/绿/红/灰/蓝底白字选中 */
 .tag-blue {
   background: #ebefff;
   color: #4f78ff;

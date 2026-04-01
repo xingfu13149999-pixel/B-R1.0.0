@@ -1,12 +1,21 @@
 <template>
-  <el-dialog v-model="dialogVisible" :show-close="false" width="740px" class="add-customer-dialog">
+  <el-dialog
+    v-model="dialogVisible"
+    :show-close="false"
+    width="740px"
+    top="266px"
+    class="add-customer-dialog"
+    modal-class="add-customer-overlay"
+  >
     <template #header>
       <div class="dialog-header">
-        <span class="header-title">新增客户</span>
+        <div class="header-left">
+          <img class="header-icon" :src="iconAdd" alt="" />
+          <span class="header-title">{{ dialogTitle }}</span>
+        </div>
+        <img class="close-icon" :src="iconClose" alt="" @click="handleClose" />
       </div>
     </template>
-
-    <button class="dialog-close-btn" @click="handleClose" />
 
     <el-form
       ref="formRef"
@@ -50,9 +59,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
+import iconAdd from '@/assets/images/home/dialog-add-figma.svg'
+import iconClose from '@/assets/images/home/dialog-close-figma.svg'
 
 interface CustomerForm {
   name: string
@@ -61,9 +72,17 @@ interface CustomerForm {
   remark: string
 }
 
-const props = defineProps<{
-  visible: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    visible: boolean
+    title?: string
+    initialData?: Partial<CustomerForm> | null
+  }>(),
+  {
+    title: '新增客户',
+    initialData: null
+  }
+)
 
 const emit = defineEmits<{
   'update:visible': [value: boolean]
@@ -74,14 +93,16 @@ const dialogVisible = computed({
   get: () => props.visible,
   set: value => emit('update:visible', value)
 })
+const dialogTitle = computed(() => props.title)
 const formRef = ref<FormInstance>()
 
-const formData = reactive<CustomerForm>({
+const createEmptyForm = (): CustomerForm => ({
   name: '',
   creditCode: '',
   customerCode: '',
   remark: ''
 })
+const formData = reactive<CustomerForm>(createEmptyForm())
 
 const formRules: FormRules<CustomerForm> = {
   name: [{ required: true, message: '请输入客户名称', trigger: 'blur' }],
@@ -89,8 +110,24 @@ const formRules: FormRules<CustomerForm> = {
   customerCode: [{ required: true, message: '请输入客户编码', trigger: 'blur' }]
 }
 
+function fillForm(data?: Partial<CustomerForm> | null) {
+  const next = { ...createEmptyForm(), ...(data ?? {}) }
+  formData.name = next.name
+  formData.creditCode = next.creditCode
+  formData.customerCode = next.customerCode
+  formData.remark = next.remark
+}
+
+watch(
+  () => props.visible,
+  visible => {
+    if (visible) fillForm(props.initialData)
+  }
+)
+
 const handleClose = () => {
   formRef.value?.resetFields()
+  fillForm(null)
   emit('update:visible', false)
 }
 
@@ -115,79 +152,66 @@ const handleSave = async () => {
 .add-customer-dialog :deep(.el-dialog) {
   border-radius: 0;
   background: #fff;
-  padding-left: 120px !important;
-  padding-right: 120px !important;
-  padding-bottom: 120px !important;
-}
-
-.add-customer-dialog :deep(.el-dialog__headerbtn) {
-  display: none;
+  height: 460px;
+  box-shadow: 0 3px 10px 0 rgba(36, 31, 164, 0.1);
+  margin-bottom: 0;
+  padding: 23px 26px 33px;
 }
 
 .add-customer-dialog :deep(.el-dialog__header) {
-  padding: 0;
+  padding: 24px 20px 20px;
   margin: 0;
-  border-bottom: 1px solid #e9ecef;
 }
 
 .add-customer-dialog :deep(.el-dialog__body) {
-  padding: 110px 100px 30px !important;
+  padding: 30px 48px 0 !important;
 }
 
 .add-customer-dialog :deep(.el-dialog__footer) {
-  padding: 0 !important;
+  padding: 22px 88px 30px 48px !important;
 }
 
 .dialog-header {
-  padding: 24px 20px;
-  min-height: 70px;
-  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 22px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 
 .header-title {
   font-size: 18px;
-  font-weight: 500;
+  font-weight: 600;
   color: #21243d;
-  text-align: center;
+  line-height: 22px;
+}
+
+.close-icon {
+  width: 18.34px;
+  height: 18.33px;
   display: block;
-}
-
-.dialog-close-btn {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #ff4646;
-  border: none;
+  flex-shrink: 0;
+  object-fit: contain;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
 }
 
-.dialog-close-btn::before,
-.dialog-close-btn::after {
-  content: '';
-  position: absolute;
-  width: 12px;
-  height: 2px;
-  background: #fff;
-  border-radius: 1px;
-}
-
-.dialog-close-btn::before {
-  transform: rotate(45deg);
-}
-
-.dialog-close-btn::after {
-  transform: rotate(-45deg);
-}
-
-.dialog-close-btn:hover {
-  background: #ff6b6b;
+.close-icon:hover {
+  opacity: 0.75;
 }
 
 .customer-form {
@@ -226,7 +250,7 @@ const handleSave = async () => {
 }
 
 .customer-form :deep(.el-input__wrapper) {
-  padding: 8px 12px;
+  padding: 5px 12px;
   border-radius: 4px;
   border: 1px solid #d9d9d9;
   box-shadow: none;
@@ -288,5 +312,9 @@ const handleSave = async () => {
 
 .save-btn:hover {
   background: #1a2ba8;
+}
+
+:global(.add-customer-overlay) {
+  background: rgba(0, 0, 0, 0.26);
 }
 </style>

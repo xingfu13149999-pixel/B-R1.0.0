@@ -1,5 +1,12 @@
 <template>
-  <el-dialog v-model="dialogVisible" :show-close="false" width="740px" class="add-project-dialog">
+  <el-dialog
+    v-model="dialogVisible"
+    :show-close="false"
+    width="740px"
+    top="266px"
+    class="add-project-dialog"
+    modal-class="add-project-overlay"
+  >
     <template #header>
       <div class="dialog-header">
         <div class="header-left">
@@ -22,10 +29,10 @@
           <el-input v-model="formData.name" placeholder="请输入项目名称" clearable />
         </el-form-item>
 
-        <el-form-item label="业务类型" prop="businessType" required class="form-item-half">
+        <el-form-item label="申报方式" prop="businessType" class="form-item-half form-item-half--select">
           <el-select
             v-model="formData.businessType"
-            placeholder="请选择业务类型"
+            placeholder="请选择申报方式"
             class="business-select"
           >
             <el-option label="常规类授信业务" value="常规类授信业务" />
@@ -36,42 +43,26 @@
       </div>
 
       <el-form-item label="授信总额" prop="creditTotal" required>
-        <el-input v-model="formData.creditTotal" placeholder="请输入授信总额" clearable>
-          <template #suffix>
-            <span class="input-suffix">万元</span>
-          </template>
-        </el-input>
+        <el-input v-model="formData.creditTotal" placeholder="请输入授信总额" clearable />
       </el-form-item>
 
       <el-form-item label="敞口额度" prop="exposureLimit" required>
-        <el-input v-model="formData.exposureLimit" placeholder="请输入敞口额度" clearable>
-          <template #suffix>
-            <span class="input-suffix">万元</span>
-          </template>
-        </el-input>
+        <el-input v-model="formData.exposureLimit" placeholder="请输入敞口额度" clearable />
       </el-form-item>
 
       <el-form-item label="缓释总额" prop="reliefTotal" required>
-        <el-input v-model="formData.reliefTotal" placeholder="请输入缓释总额" clearable>
-          <template #suffix>
-            <span class="input-suffix">万元</span>
-          </template>
-        </el-input>
+        <el-input v-model="formData.reliefTotal" placeholder="请输入缓释总额" clearable />
       </el-form-item>
 
       <el-form-item label="授信期限" prop="creditTerm" required>
-        <el-input v-model="formData.creditTerm" placeholder="请输入授信期限" clearable>
-          <template #suffix>
-            <span class="input-suffix">个月</span>
-          </template>
-        </el-input>
+        <el-input v-model="formData.creditTerm" placeholder="请输入授信期限" clearable />
       </el-form-item>
     </el-form>
 
     <template #footer>
       <div class="dialog-footer">
         <el-button class="cancel-btn" @click="handleClose">取消</el-button>
-        <el-button class="confirm-btn" type="primary" @click="handleConfirm">新增</el-button>
+        <el-button class="confirm-btn" type="primary" @click="handleConfirm">保存</el-button>
       </div>
     </template>
   </el-dialog>
@@ -81,8 +72,8 @@
 import { ref, reactive, computed } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import iconAdd from '@/assets/images/home/dialog-add.svg'
-import iconClose from '@/assets/images/home/dialog-close.svg'
+import iconAdd from '@/assets/images/home/dialog-add-figma.svg'
+import iconClose from '@/assets/images/home/dialog-close-figma.svg'
 
 interface ProjectForm {
   name: string
@@ -111,7 +102,7 @@ const formRef = ref<FormInstance>()
 
 const formData = reactive<ProjectForm>({
   name: '',
-  businessType: '',
+  businessType: '常规类授信业务',
   creditTotal: '',
   exposureLimit: '',
   reliefTotal: '',
@@ -147,70 +138,74 @@ const handleConfirm = async () => {
 
 <style scoped>
 .add-project-dialog :deep(.el-dialog) {
-  border-radius: 4px;
+  border-radius: 0;
   background: #fff;
-  box-shadow: 0 3px 10px rgba(24, 31, 103, 0.1);
-  overflow: hidden;
+  height: 460px;
+  box-shadow: 0 3px 10px 0 rgba(36, 31, 164, 0.1);
+  margin-bottom: 0;
+  padding: 23px 26px 33px;
 }
 
 .add-project-dialog :deep(.el-dialog__header) {
-  padding: 0;
+  padding: 24px 20px 20px;
   margin: 0;
 }
 
 .add-project-dialog :deep(.el-dialog__body) {
-  padding: 0 !important;
+  padding: 30px 48px 0 !important;
 }
 
 .add-project-dialog :deep(.el-dialog__footer) {
-  padding: 0 !important;
+  padding: 22px 88px 30px 48px !important;
 }
 
 .dialog-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
+  min-height: 22px;
+  padding-bottom: 20px;
   border-bottom: 1px solid #e9ecef;
-  box-sizing: border-box;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .header-icon {
   width: 20px;
   height: 20px;
+  display: block;
+  flex-shrink: 0;
   object-fit: contain;
 }
 
 .header-title {
   font-size: 18px;
-  font-weight: 500;
-  color: #2d3149;
-  letter-spacing: 0;
+  font-weight: 600;
+  color: #21243d;
+  line-height: 22px;
 }
 
 .close-icon {
-  width: 18px;
-  height: 18px;
+  width: 18.34px;
+  height: 18.33px;
+  display: block;
+  flex-shrink: 0;
   cursor: pointer;
   object-fit: contain;
-  opacity: 0.6;
 }
 
 .close-icon:hover {
-  opacity: 1;
+  opacity: 0.75;
 }
 
 .project-form {
   display: flex;
   flex-direction: column;
-  padding: 24px 28px;
-  gap: 0;
+  gap: 14px;
 }
 
 .form-row {
@@ -224,40 +219,42 @@ const handleConfirm = async () => {
 }
 
 .project-form :deep(.el-form-item) {
-  margin-bottom: 20px;
+  margin-bottom: 0;
 }
 
 .project-form :deep(.el-form-item:last-child) {
   margin-bottom: 0;
 }
 
-.project-form :deep(.el-form-item__label) {
-  font-size: 14px;
-  color: #2d3149;
-  font-weight: 400;
-  line-height: 22px;
-  margin-bottom: 8px;
-  padding: 0;
-}
-
-.project-form :deep(.el-form-item__label::before) {
+.form-item-half--select :deep(.el-form-item__label::before) {
   content: '';
   margin-right: 0;
 }
 
+.project-form :deep(.el-form-item__label) {
+  font-size: 14px;
+  color: #21243d;
+  font-weight: 400;
+  line-height: 22px;
+  margin-bottom: 5px;
+}
+
+.project-form :deep(.el-form-item__label::before) {
+  content: '*';
+  color: #ff4646;
+  margin-right: 4px;
+}
+
 .project-form :deep(.el-input__wrapper) {
-  padding: 10px 12px;
+  padding: 5px 12px;
   border-radius: 4px;
   border: 1px solid #d9d9d9;
   box-shadow: none;
-  background: #fff;
 }
 
 .project-form :deep(.el-input__inner) {
   font-size: 14px;
   color: #303030;
-  height: 22px;
-  line-height: 22px;
 }
 
 .project-form :deep(.el-input__inner::placeholder) {
@@ -266,12 +263,14 @@ const handleConfirm = async () => {
 }
 
 .project-form :deep(.el-select__wrapper) {
-  padding: 10px 12px;
+  padding: 5px 12px;
   border-radius: 4px;
   border: 1px solid #d9d9d9;
   box-shadow: none;
-  background: #fff;
-  min-height: 44px;
+}
+
+.project-form :deep(.el-select__selection) {
+  min-height: 22px;
 }
 
 .project-form :deep(.el-select__placeholder) {
@@ -279,19 +278,16 @@ const handleConfirm = async () => {
   color: #bfbfbf;
 }
 
-.input-suffix {
+.project-form :deep(.el-select__selected-item) {
   font-size: 14px;
-  color: #8c8c8c;
-  margin-left: 4px;
+  color: #21243d;
+  line-height: 22px;
 }
 
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 16px;
-  padding: 20px 28px;
-  border-top: 1px solid #e9ecef;
-  background: #fafafa;
+  gap: 20px;
 }
 
 .cancel-btn,
@@ -301,7 +297,6 @@ const handleConfirm = async () => {
   padding: 8px 20px;
   border-radius: 4px;
   font-size: 14px;
-  font-weight: 400;
 }
 
 .cancel-btn {
@@ -323,5 +318,9 @@ const handleConfirm = async () => {
 
 .confirm-btn:hover {
   background: #1a2ba8;
+}
+
+::global(.add-project-overlay) {
+  background: rgba(0, 0, 0, 0.26);
 }
 </style>

@@ -217,17 +217,59 @@
 
     <!-- 新增客户弹窗 -->
     <AddCustomerDialog v-model:visible="addDialogVisible" @success="handleAddSuccess" />
+    <!-- 编辑客户弹窗（样式与新增客户一致） -->
+    <AddCustomerDialog
+      v-model:visible="editDialogVisible"
+      title="编辑客户"
+      :initial-data="editingCustomerData"
+      @success="handleEditSuccess"
+    />
 
     <!-- 新增项目弹窗 -->
     <AddProjectDialog
       v-model:visible="addProjectDialogVisible"
       @success="handleAddProjectSuccess"
     />
+
+    <el-dialog
+      v-model="deleteDialogVisible"
+      :show-close="false"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      width="640px"
+      top="184px"
+      class="delete-confirm-dialog"
+      modal-class="delete-confirm-overlay"
+      @closed="handleDeleteCancel"
+    >
+      <template #header>
+        <div class="delete-dialog-header">
+          <span class="delete-dialog-title">确认删除</span>
+          <img
+            class="delete-dialog-close"
+            :src="deleteDialogCloseIcon"
+            alt=""
+            @click="handleDeleteCancel"
+          />
+        </div>
+      </template>
+
+      <div class="delete-dialog-content">
+        {{ deleteDialogMessage }}
+      </div>
+
+      <template #footer>
+        <div class="delete-dialog-footer">
+          <el-button class="delete-cancel-btn" @click="handleDeleteCancel">取消</el-button>
+          <el-button class="delete-confirm-btn" @click="handleDeleteConfirm">确定删除</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, provide } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { ElMessage } from 'element-plus'
@@ -259,6 +301,7 @@ import iconMic from '@/assets/images/sidebar/icon-mic.svg'
 import iconEdit from '@/assets/images/sidebar/icon-edit.svg'
 import iconDelete from '@/assets/images/sidebar/icon-delete.svg'
 import iconAddSub from '@/assets/images/sidebar/icon-add-sub.svg'
+import deleteDialogCloseIcon from '@/assets/images/home/dialog-close-figma.svg'
 
 const router = useRouter()
 const route = useRoute()
@@ -267,7 +310,13 @@ const aiPanelOpen = ref(false)
 const userDropdownVisible = ref(false)
 const searchKeyword = ref('')
 const addDialogVisible = ref(false)
+const editDialogVisible = ref(false)
 const addProjectDialogVisible = ref(false)
+const deleteDialogVisible = ref(false)
+const editingCustomerId = ref<string | null>(null)
+const editingCustomerData = ref<CustomerForm | null>(null)
+const deletingCustomerId = ref<string | null>(null)
+const deletingCustomerName = ref('')
 
 // 右键菜单状态
 const contextMenu = ref({
@@ -296,7 +345,17 @@ function closeContextMenu() {
 }
 
 function onContextMenuEdit() {
-  console.log('编辑:', contextMenu.value.targetItem)
+  const target = contextMenu.value.targetItem
+  if (!target) return
+  const current = findCustomerById(customerList.value, target.id)
+  editingCustomerId.value = target.id
+  editingCustomerData.value = {
+    name: current?.name ?? target.name,
+    creditCode: current?.creditCode ?? '',
+    customerCode: current?.customerCode ?? '',
+    remark: current?.remark ?? ''
+  }
+  editDialogVisible.value = true
   closeContextMenu()
 }
 
@@ -311,9 +370,82 @@ function onContextMenuAddChild() {
   closeContextMenu()
 }
 
-function onContextMenuDelete() {
-  console.log('删除:', contextMenu.value.targetItem)
+async function onContextMenuDelete() {
+  const target = contextMenu.value.targetItem
+  if (!target) return
+
   closeContextMenu()
+
+  const deletingTarget = findCustomerById(customerList.value, target.id)
+  if (!deletingTarget) {
+    ElMessage.error('删除失败，未找到目标客户')
+    return
+  }
+
+  deletingCustomerId.value = target.id
+  deletingCustomerName.value = deletingTarget.name
+  deleteDialogVisible.value = true
+}
+
+const deleteDialogMessage = computed(() => {
+  if (!deletingCustomerName.value) return ''
+  return `确定删除${deletingCustomerName.value}？删除后${deletingCustomerName.value}内的所有子客户和项目都会删除。请您确认是否继续？`
+})
+
+function handleDeleteCancel() {
+  deleteDialogVisible.value = false
+  deletingCustomerId.value = null
+  deletingCustomerName.value = ''
+}
+
+function handleDeleteConfirm() {
+  const targetId = deletingCustomerId.value
+  if (!targetId) return
+
+  const deletingTarget = findCustomerById(customerList.value, targetId)
+  if (!deletingTarget) {
+    handleDeleteCancel()
+    ElMessage.error('删除失败，未找到目标客户')
+    return
+  }
+
+  const selectedWillBeDeleted = containsCustomerId(deletingTarget, selectedId.value)
+  const editingWillBeDeleted = editingCustomerId.value
+    ? containsCustomerId(deletingTarget, editingCustomerId.value)
+    : false
+
+  const deleted = deleteCustomerById(customerList.value, targetId)
+  if (!deleted) {
+    handleDeleteCancel()
+    ElMessage.error('删除失败，未找到目标客户')
+    return
+  }
+
+  if (selectedWillBeDeleted) {
+    const fallback = findFirstSelectableCustomer(customerList.value)
+    if (fallback) {
+      selectedId.value = fallback.id
+      appStore.setSelectedCustomer(fallback.id)
+      if (isProjectRouteTarget(fallback.id)) {
+        router.push({ name: 'HomeProject', params: { projectId: fallback.id } })
+      } else {
+        router.push({ name: 'Home' })
+      }
+    } else {
+      selectedId.value = ''
+      appStore.setSelectedCustomer('')
+      router.push({ name: 'Home' })
+    }
+  }
+
+  if (editingWillBeDeleted) {
+    editingCustomerId.value = null
+    editingCustomerData.value = null
+    editDialogVisible.value = false
+  }
+
+  handleDeleteCancel()
+  ElMessage.success('删除成功')
 }
 
 function onUserDropdownVisible(visible: boolean) {
@@ -322,25 +454,99 @@ function onUserDropdownVisible(visible: boolean) {
 const selectedId = ref('2')
 const expandedIds = ref(new Set(['2']))
 
-const isHome = computed(() => route.name === 'Home' || route.path === '/')
+const isHome = computed(() => route.name === 'Home' || route.name === 'HomeProject')
+
+interface CustomerForm {
+  name: string
+  creditCode: string
+  customerCode: string
+  remark: string
+}
+
+interface CustomerTreeItem extends CustomerForm {
+  id: string
+  name: string
+  count?: string
+  parentId?: string
+  children?: CustomerTreeItem[]
+}
 
 // TODO: [客户列表] 后端接口完成后，替换假数据为 API 调用
-const customerList = ref([
-  { id: '1', name: '四川晨光博达新材...', count: '新' },
+const customerList = ref<CustomerTreeItem[]>([
+  {
+    id: '1',
+    name: '四川晨光博达新材...',
+    count: '新',
+    creditCode: '',
+    customerCode: '',
+    remark: ''
+  },
   {
     id: '2',
     name: '成都盟升电子技术...',
     count: '1/2',
+    creditCode: '',
+    customerCode: '',
+    remark: '',
     children: [
-      { id: '2-1', name: '成都盟升电子技术科', parentId: '2' },
-      { id: '2-2', name: '7000万元授信尽职调查', parentId: '2' },
-      { id: '2-3', name: '6000万元授信尽职调查', parentId: '2' }
+      {
+        id: '2-1',
+        name: '成都盟升电子技术科',
+        parentId: '2',
+        creditCode: '',
+        customerCode: '',
+        remark: ''
+      },
+      {
+        id: '2-2',
+        name: '7000万元授信尽职调查',
+        parentId: '2',
+        creditCode: '',
+        customerCode: '',
+        remark: ''
+      },
+      {
+        id: '2-3',
+        name: '6000万元授信尽职调查',
+        parentId: '2',
+        creditCode: '',
+        customerCode: '',
+        remark: ''
+      }
     ]
   },
-  { id: '3', name: '杭州宇树科技股份...', count: '4/6' },
-  { id: '4', name: '惠州市赢合智能...', count: '0/5' },
-  { id: '5', name: '惠州市知合行...', count: '0/3' },
-  { id: '6', name: '杭州宇树科技股份...', count: '4/6' }
+  {
+    id: '3',
+    name: '杭州宇树科技股份...',
+    count: '4/6',
+    creditCode: '',
+    customerCode: '',
+    remark: ''
+  },
+  {
+    id: '4',
+    name: '惠州市赢合智能...',
+    count: '0/5',
+    creditCode: '',
+    customerCode: '',
+    remark: ''
+  },
+  {
+    id: '5',
+    name: '惠州市知合行...',
+    count: '0/3',
+    creditCode: '',
+    customerCode: '',
+    remark: ''
+  },
+  {
+    id: '6',
+    name: '杭州宇树科技股份...',
+    count: '4/6',
+    creditCode: '',
+    customerCode: '',
+    remark: ''
+  }
 ])
 
 /** 根据搜索关键字过滤客户列表（包括父级和子客户名称）
@@ -373,11 +579,6 @@ function toggleExpand(id: string) {
   expandedIds.value = set
 }
 
-function onSelectCustomer(item: { id: string }) {
-  selectedId.value = item.id
-  appStore.setSelectedCustomer(item.id)
-}
-
 /** Figma 徽章：新=红，n/x(n>0)=橙，0/x=灰 */
 function countBadgeClass(count?: string): string {
   const c: string = count ?? ''
@@ -393,11 +594,109 @@ function showAddDialog() {
   addDialogVisible.value = true
 }
 
-interface CustomerForm {
-  name: string
-  creditCode: string
-  customerCode: string
-  remark: string
+function findCustomerById(items: CustomerTreeItem[], id: string): CustomerTreeItem | null {
+  for (const item of items) {
+    if (item.id === id) return item
+    if (item.children) {
+      const child = findCustomerById(item.children, id)
+      if (child) return child
+    }
+  }
+  return null
+}
+
+/** 仅用于路由分流：首个子项为子客户 → 客户首页；其后为项目 → 项目页（与 Figma 左侧列表一致） */
+function isProjectRouteTarget(id: string): boolean {
+  for (const parent of customerList.value) {
+    if (!parent.children?.length) continue
+    const idx = parent.children.findIndex(c => c.id === id)
+    if (idx > 0) return true
+  }
+  return false
+}
+
+function findParentCustomerId(items: CustomerTreeItem[], childId: string): string | null {
+  for (const item of items) {
+    if (item.children?.some(c => c.id === childId)) return item.id
+  }
+  return null
+}
+
+watch(
+  () => ({ name: route.name, pid: route.params.projectId }),
+  ({ name, pid }) => {
+    if (name === 'HomeProject' && typeof pid === 'string' && pid) {
+      selectedId.value = pid
+      appStore.setSelectedCustomer(pid)
+      const parentId = findParentCustomerId(customerList.value, pid)
+      if (parentId) {
+        const expanded = new Set(expandedIds.value)
+        expanded.add(parentId)
+        expandedIds.value = expanded
+      }
+    }
+  },
+  { immediate: true }
+)
+
+provide(
+  'findCustomerName',
+  (id: string) => findCustomerById(customerList.value, id)?.name ?? ''
+)
+
+function onSelectCustomer(item: { id: string }) {
+  selectedId.value = item.id
+  appStore.setSelectedCustomer(item.id)
+  if (isProjectRouteTarget(item.id)) {
+    router.push({ name: 'HomeProject', params: { projectId: item.id } })
+  } else {
+    router.push({ name: 'Home' })
+  }
+}
+
+function containsCustomerId(item: CustomerTreeItem, id: string): boolean {
+  if (!id) return false
+  if (item.id === id) return true
+  return item.children?.some(child => containsCustomerId(child, id)) ?? false
+}
+
+function findFirstSelectableCustomer(items: CustomerTreeItem[]): CustomerTreeItem | null {
+  for (const item of items) {
+    if (item.children?.length) return item.children[0] ?? null
+    return item
+  }
+  return null
+}
+
+function deleteCustomerById(items: CustomerTreeItem[], id: string): boolean {
+  const index = items.findIndex(item => item.id === id)
+  if (index !== -1) {
+    items.splice(index, 1)
+    const set = new Set(expandedIds.value)
+    set.delete(id)
+    expandedIds.value = set
+    return true
+  }
+
+  for (const item of items) {
+    if (!item.children?.length) continue
+
+    const childIndex = item.children.findIndex(child => child.id === id)
+    if (childIndex !== -1) {
+      item.children.splice(childIndex, 1)
+      if (item.children.length === 0) {
+        delete item.children
+        const set = new Set(expandedIds.value)
+        set.delete(item.id)
+        expandedIds.value = set
+      }
+      return true
+    }
+
+    if (deleteCustomerById(item.children, id)) return true
+  }
+
+  return false
 }
 
 function handleAddSuccess(data: CustomerForm) {
@@ -407,10 +706,26 @@ function handleAddSuccess(data: CustomerForm) {
   const newCustomer = {
     id: String(Date.now()),
     name: data.name,
-    count: '新'
+    count: '新',
+    creditCode: data.creditCode,
+    customerCode: data.customerCode,
+    remark: data.remark
   }
   customerList.value.unshift(newCustomer)
   ElMessage.success('客户添加成功')
+}
+
+function handleEditSuccess(data: CustomerForm) {
+  const targetId = editingCustomerId.value
+  if (!targetId) return
+
+  const target = findCustomerById(customerList.value, targetId)
+  if (!target) return
+  target.name = data.name
+  target.creditCode = data.creditCode
+  target.customerCode = data.customerCode
+  target.remark = data.remark
+  ElMessage.success('客户编辑成功')
 }
 
 interface ProjectForm {
@@ -1164,5 +1479,108 @@ function handleAddProjectSuccess(data: ProjectForm) {
   height: 24px;
   flex-shrink: 0;
   object-fit: contain;
+}
+
+.delete-confirm-dialog :deep(.el-dialog) {
+  border-radius: 0;
+  background: #fff;
+  height: 260px;
+  box-shadow: 0 3px 10px 0 rgba(36, 31, 164, 0.1);
+  margin-bottom: 0;
+}
+
+.delete-confirm-dialog :deep(.el-dialog__header) {
+  padding: 0;
+  margin: 0;
+}
+
+.delete-confirm-dialog :deep(.el-dialog__body) {
+  padding: 0 !important;
+  height: 77px;
+}
+
+.delete-confirm-dialog :deep(.el-dialog__footer) {
+  padding: 0 !important;
+}
+
+.delete-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 50px;
+  padding: 0 10px;
+  border-bottom: 1px solid #e9ecef;
+  box-sizing: border-box;
+}
+
+.delete-dialog-title {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 22px;
+  color: #21243d;
+}
+
+.delete-dialog-close {
+  width: 18.31px;
+  height: 16.83px;
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
+  cursor: pointer;
+}
+
+.delete-dialog-close:hover {
+  opacity: 0.75;
+}
+
+.delete-dialog-content {
+  padding: 10px 12px 0 20px;
+  font-size: 16px;
+  line-height: 26px;
+  color: #21243d;
+  height: 74px;
+  box-sizing: border-box;
+}
+
+.delete-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 20px;
+  padding: 17px 28px 0 0;
+}
+
+.delete-cancel-btn,
+.delete-confirm-btn {
+  height: 38px;
+  min-width: 100px;
+  padding: 9px 20px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.delete-cancel-btn {
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  color: #303030;
+}
+
+.delete-cancel-btn:hover {
+  border-color: #2036ca;
+  color: #2036ca;
+}
+
+.delete-confirm-btn {
+  background: #fe635d;
+  border: none;
+  color: #fff;
+}
+
+.delete-confirm-btn:hover {
+  background: #f55a54;
+  color: #fff;
+}
+
+::global(.delete-confirm-overlay) {
+  background: rgba(0, 0, 0, 0.26);
 }
 </style>

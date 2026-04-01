@@ -10,19 +10,10 @@
           <div class="company-info">
             <h1 class="company-name">四川晨光博达新材料有限公司</h1>
             <div class="company-metrics">
-              <span class="metric"
-                ><em class="metric-label">综合授信</em><em class="metric-value">1.2亿</em></span
-              >
-              <span class="metric"
-                ><em class="metric-label">信用评级</em><em class="metric-value">A</em></span
-              >
-              <span class="metric"
-                ><em class="metric-label">敞口额度</em><em class="metric-value">0.5亿</em></span
-              >
-              <span class="metric"
-                ><em class="metric-label">担保方式</em
-                ><em class="metric-value metric-value--green">保证担保</em></span
-              >
+              <span class="metric"><em class="metric-label">综合授信</em><em class="metric-value">1.2亿</em></span>
+              <span class="metric"><em class="metric-label">信用评级</em><em class="metric-value">A</em></span>
+              <span class="metric"><em class="metric-label">敞口额度</em><em class="metric-value">0.5亿</em></span>
+              <span class="metric"><em class="metric-label">担保方式</em><em class="metric-value metric-value--green">保证担保</em></span>
             </div>
           </div>
           <div class="header-meta">
@@ -42,160 +33,86 @@
       <!-- Figma 1:1539 分离-横：公司信息与一页纸之间分隔线 -->
       <div class="content-header-divider" />
 
-      <!-- 一页纸 | 竖线 | 公司资料：整块隔离，竖线从标题贯穿到底部 -->
-      <div class="panels-with-divider">
-        <div class="panel-left">
-          <div class="onepage-tabs">
-            <div class="onepage-title-wrap">
-              <span class="onepage-title">一页纸</span>
-              <img class="onepage-underline" :src="iconOnepageUnderline" alt="" />
-            </div>
-            <span class="onepage-progress">
-              （ 已完成 <em class="onepage-num">4</em>
-              <img class="onepage-progress-sep" :src="iconProgressDivider" alt="" />
-              总数 <em class="onepage-num">8</em> ）
-            </span>
-            <div class="header-actions">
-              <button type="button" class="action-btn" aria-label="刷新">
-                <img class="action-btn-icon" :src="iconRefresh" alt="" />
-              </button>
-              <button type="button" class="action-btn action-btn--download" aria-label="下载">
-                <img class="action-btn-icon" :src="iconDownload" alt="" />
-              </button>
-            </div>
+      <!-- 一页纸 / 公司资料：Figma 头部 1:1239 一比一 -->
+      <div class="tabs-row">
+        <div class="onepage-tabs">
+          <div class="onepage-title-wrap">
+            <span class="onepage-title">一页纸</span>
+            <img class="onepage-underline" :src="iconOnepageUnderline" alt="" />
           </div>
-          <div class="content-left">
-            <CustomerOnepage />
+          <span class="onepage-progress">
+            （ 已完成 <em class="onepage-num">4</em>
+            <img class="onepage-progress-sep" :src="iconProgressDivider" alt="" />
+            总数 <em class="onepage-num">8</em> ）
+          </span>
+          <div class="header-actions">
+            <button type="button" class="action-btn" aria-label="刷新">
+              <img class="action-btn-icon" :src="iconRefresh" alt="" />
+            </button>
+            <button type="button" class="action-btn action-btn--download" aria-label="下载">
+              <img class="action-btn-icon" :src="iconDownload" alt="" />
+            </button>
           </div>
         </div>
+        <div class="doc-tabs">
+          <div class="doc-title-wrap">
+            <span class="doc-title">公司资料</span>
+            <img class="doc-underline" :src="iconOnepageUnderline" alt="" />
+          </div>
+        </div>
+      </div>
 
-        <div class="content-divider" />
+      <!-- 下方内容区：左侧卡片 + 竖条 + 右侧列表 -->
+      <div class="content-body">
+        <div class="content-left">
+          <CustomerOnepage />
+        </div>
 
-        <div class="panel-right">
-          <div class="doc-tabs">
-            <div class="doc-title-wrap">
-              <span class="doc-title">公司资料</span>
-              <img class="doc-underline" :src="iconOnepageUnderline" alt="" />
+
+        <aside class="content-right">
+          <div class="right-search">
+            <el-input v-model="rightKeyword" placeholder="请输入关键字" class="keyword-input" clearable>
+              <template #suffix>
+                <img class="search-suffix-icon" :src="iconDocSearch" alt="" />
+              </template>
+            </el-input>
+            <button type="button" class="right-add-btn" aria-label="添加">
+              <img class="right-add-icon" :src="iconDocAdd" alt="" />
+            </button>
+          </div>
+          <div class="doc-tree">
+            <div class="tree-item" @click="toggleTree('basic')">
+              <img class="tree-caret" :src="iconDocArrow" alt="" :class="{ 'tree-caret--down': expandedTree.basic }" />
+              <img class="tree-folder" :src="iconDocFolder" alt="" />
+              <span class="tree-label">客户基本资料</span>
+            </div>
+            <div class="tree-item" @click="toggleTree('other')">
+              <img class="tree-caret" :src="iconDocArrow" alt="" :class="{ 'tree-caret--down': expandedTree.other }" />
+              <img class="tree-folder" :src="iconDocFolder" alt="" />
+              <span class="tree-label">其他材料</span>
+            </div>
+            <div class="tree-item tree-item--license" @click="toggleTree('license')">
+              <img class="tree-caret" :src="iconDocArrow" alt="" :class="{ 'tree-caret--down': expandedTree.license }" />
+              <img class="tree-folder" :src="iconDocFolder" alt="" />
+              <span class="tree-label">企业证照</span>
+            </div>
+            <div v-show="expandedTree.license" class="tree-children">
+              <div class="tree-child"><span class="tree-child-line" /><img class="tree-doc" :src="iconDocFile" alt="" /><span class="tree-child-label">营业证照</span></div>
+              <div class="tree-child"><span class="tree-child-line" /><img class="tree-doc" :src="iconDocFile" alt="" /><span class="tree-child-label">组织机构代码证</span></div>
+              <div class="tree-child"><span class="tree-child-line" /><img class="tree-doc" :src="iconDocFile" alt="" /><span class="tree-child-label">开户许可证</span></div>
+              <div class="tree-child"><span class="tree-child-line" /><img class="tree-doc" :src="iconDocFile" alt="" /><span class="tree-child-label">环保或其他许可证</span></div>
+              <div class="tree-child"><span class="tree-child-line" /><img class="tree-doc" :src="iconDocFile" alt="" /><span class="tree-child-label">资质证明</span></div>
+              <div class="tree-child"><span class="tree-child-line" /><img class="tree-doc" :src="iconDocFile" alt="" /><span class="tree-child-label">税务登记证</span></div>
+              <div class="tree-child"><span class="tree-child-line" /><img class="tree-doc" :src="iconDocFile" alt="" /><span class="tree-child-label">年审材料/Good Standing</span></div>
+              <div class="tree-child"><span class="tree-child-line" /><img class="tree-doc" :src="iconDocFile" alt="" /><span class="tree-child-label">商业登记证/Incumbency</span></div>
+            </div>
+            <div class="tree-item" @click="toggleTree('finance')">
+              <img class="tree-caret" :src="iconDocArrow" alt="" :class="{ 'tree-caret--down': expandedTree.finance }" />
+              <img class="tree-folder" :src="iconDocFolder" alt="" />
+              <span class="tree-label">财务报表</span>
             </div>
           </div>
-          <aside class="content-right">
-            <div class="right-search">
-              <el-input
-                v-model="rightKeyword"
-                placeholder="请输入关键字"
-                class="keyword-input"
-                clearable
-              >
-                <template #suffix>
-                  <img class="search-suffix-icon" :src="iconDocSearch" alt="" />
-                </template>
-              </el-input>
-              <button type="button" class="right-add-btn" aria-label="添加">
-                <img class="right-add-icon" :src="iconDocAdd" alt="" />
-              </button>
-            </div>
-            <div class="doc-tree">
-              <div class="tree-item" @click="toggleTree('basic')">
-                <img
-                  class="tree-caret"
-                  :src="iconDocArrow"
-                  alt=""
-                  :class="{ 'tree-caret--down': expandedTree.basic }"
-                />
-                <img class="tree-folder" :src="iconDocFolder" alt="" />
-                <span class="tree-label">客户基本资料</span>
-              </div>
-              <div class="tree-item" @click="toggleTree('other')">
-                <img
-                  class="tree-caret"
-                  :src="iconDocArrow"
-                  alt=""
-                  :class="{ 'tree-caret--down': expandedTree.other }"
-                />
-                <img class="tree-folder" :src="iconDocFolder" alt="" />
-                <span class="tree-label">其他材料</span>
-              </div>
-              <div class="tree-item tree-item--license" @click="toggleTree('license')">
-                <img
-                  class="tree-caret"
-                  :src="iconDocArrow"
-                  alt=""
-                  :class="{ 'tree-caret--down': expandedTree.license }"
-                />
-                <img class="tree-folder" :src="iconDocFolder" alt="" />
-                <span class="tree-label">企业证照</span>
-              </div>
-              <div v-show="expandedTree.license" class="tree-children">
-                <div class="tree-child">
-                  <span class="tree-child-line" /><img
-                    class="tree-doc"
-                    :src="iconDocFile"
-                    alt=""
-                  /><span class="tree-child-label">营业证照</span>
-                </div>
-                <div class="tree-child">
-                  <span class="tree-child-line" /><img
-                    class="tree-doc"
-                    :src="iconDocFile"
-                    alt=""
-                  /><span class="tree-child-label">组织机构代码证</span>
-                </div>
-                <div class="tree-child">
-                  <span class="tree-child-line" /><img
-                    class="tree-doc"
-                    :src="iconDocFile"
-                    alt=""
-                  /><span class="tree-child-label">开户许可证</span>
-                </div>
-                <div class="tree-child">
-                  <span class="tree-child-line" /><img
-                    class="tree-doc"
-                    :src="iconDocFile"
-                    alt=""
-                  /><span class="tree-child-label">环保或其他许可证</span>
-                </div>
-                <div class="tree-child">
-                  <span class="tree-child-line" /><img
-                    class="tree-doc"
-                    :src="iconDocFile"
-                    alt=""
-                  /><span class="tree-child-label">资质证明</span>
-                </div>
-                <div class="tree-child">
-                  <span class="tree-child-line" /><img
-                    class="tree-doc"
-                    :src="iconDocFile"
-                    alt=""
-                  /><span class="tree-child-label">税务登记证</span>
-                </div>
-                <div class="tree-child">
-                  <span class="tree-child-line" /><img
-                    class="tree-doc"
-                    :src="iconDocFile"
-                    alt=""
-                  /><span class="tree-child-label">年审材料/Good Standing</span>
-                </div>
-                <div class="tree-child">
-                  <span class="tree-child-line" /><img
-                    class="tree-doc"
-                    :src="iconDocFile"
-                    alt=""
-                  /><span class="tree-child-label">商业登记证/Incumbency</span>
-                </div>
-              </div>
-              <div class="tree-item" @click="toggleTree('finance')">
-                <img
-                  class="tree-caret"
-                  :src="iconDocArrow"
-                  alt=""
-                  :class="{ 'tree-caret--down': expandedTree.finance }"
-                />
-                <img class="tree-folder" :src="iconDocFolder" alt="" />
-                <span class="tree-label">财务报表</span>
-              </div>
-            </div>
-          </aside>
-        </div>
+        </aside>
       </div>
     </div>
   </div>
@@ -223,7 +140,7 @@ const expandedTree = reactive({
   basic: false,
   other: false,
   license: true,
-  finance: false
+  finance: false,
 })
 
 function toggleTree(key: keyof typeof expandedTree) {
@@ -233,18 +150,17 @@ function toggleTree(key: keyof typeof expandedTree) {
 
 <style scoped>
 /* 填满布局主内容区，一屏展示；Figma 94:68 内容板块 x=341 width=1540，左右留白 61px/39px，上下 13px/43px */
-/* 填满布局主内容区，一屏展示；Figma 94:68 内容板块 x=341 width=1540，左右留白 61px/39px，上下 13px/43px */
 .home-page {
-  width: 100%; /* 占满父容器宽度 */
-  height: 100%; /* 占满父容器高度 */
-  min-height: 0; /* 允许内容收缩至0 */
-  max-height: 100%; /* 最大高度不超出父容器 */
-  box-sizing: border-box; /* 内边距计入元素尺寸 */
-  overflow: hidden; /* 隐藏溢出内容 */
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background: transparent;
-  padding: 13px 30px 30px 12px; /* 上右下左，顺时针 */
+  padding: 13px 30px 30px 12px;
 }
 
 /* Figma 1:1181 内容板块背景色：浅蓝白色块、6px 圆角、柔和投影 */
@@ -258,8 +174,8 @@ function toggleTree(key: keyof typeof expandedTree) {
   box-sizing: border-box;
   padding: 20px 24px;
   overflow: hidden;
-  background: linear-gradient(180deg, #eef2ff 0%, #f5f7ff 40%, #ffffff 100%);
-  border-radius: 10px;
+  background: linear-gradient(180deg, #eef2ff 0%, #f5f7ff 40%, #f5f7ff 30%);
+  border-radius: 6px;
   box-shadow: 0 0 20px hwb(226 28% 19% / 0.15);
 }
 
@@ -279,17 +195,6 @@ function toggleTree(key: keyof typeof expandedTree) {
   margin: 28px 0 20px 0;
 }
 
-/* 一页纸与公司资料之间的竖线分隔符 */
-.tabs-divider {
-  width: 0;
-  height: auto;
-  border: none;
-  border-left: 1px solid rgba(0, 0, 0, 0.06);
-  flex-shrink: 0;
-  align-self: stretch;
-  margin: 0 20px;
-}
-
 .company-header {
   display: flex;
   align-items: flex-start;
@@ -298,37 +203,23 @@ function toggleTree(key: keyof typeof expandedTree) {
   min-height: 86px;
 }
 
-/* 一页纸 | 竖线 | 公司资料：整块隔离，竖线从标题贯穿到底部 */
-.panels-with-divider {
-  flex: 1;
-  min-height: 0;
+/* 一页纸 / 公司资料：与下方内容区左右对齐，参考列表栏留白 */
+.tabs-row {
   display: flex;
   align-items: stretch;
   width: 100%;
-  overflow: hidden;
-  gap: 24px;
-  box-sizing: border-box;
-}
-
-.panel-left {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.panel-left .onepage-tabs {
   flex-shrink: 0;
   margin-bottom: 0;
-  /* 左侧 0 与公司信息 logo 左对齐（content-panel padding-left 24px） */
-  padding: 0 0 10px 0;
+  padding-left: 10px;
+  padding-right: 10px;
   box-sizing: border-box;
 }
 
-.panel-left .content-left {
+.tabs-row .onepage-tabs {
   flex: 1;
-  min-height: 0;
+  min-width: 0;
+  margin-bottom: 0;
+  margin-right: 40px;
 }
 
 .tabs-row-divider {
@@ -339,30 +230,15 @@ function toggleTree(key: keyof typeof expandedTree) {
   align-self: stretch;
 }
 
-/* 公司资料整块：标题 + 下方列表；左内边距 0，与竖线距离 24px 统一 */
-.panel-right {
-  flex: 0 0 556px;
-  min-width: 280px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding-left: 0;
-  box-sizing: border-box;
-}
-
+/* 公司资料顶部栏：与一页纸顶部栏样式一致 */
 .doc-tabs {
-  flex-shrink: 0;
+  flex: 0 0 556px;
   min-width: 280px;
   display: flex;
   align-items: center;
   padding-bottom: 20px;
-  padding-left: 0;
   box-sizing: border-box;
-}
-
-.panel-right .content-right {
-  flex: 1;
-  min-height: 0;
+  /* padding-left: 10px; */
 }
 
 .doc-title-wrap {
@@ -388,10 +264,20 @@ function toggleTree(key: keyof typeof expandedTree) {
   margin-top: 2px;
 }
 
-/* 一页纸内容区：可滚动并显示滚动条；左 0 与公司信息 logo 左对齐，右侧 0 与竖线 24px 统一 */
+/* 下方内容区：左侧卡片 + 竖条 + 右侧列表 */
+.content-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* 一页纸内容区：可滚动并显示滚动条 */
 .content-left {
+  flex: 1;
   min-width: 0;
-  padding: 10px 0 10px 0;
+  padding: 10px;
   overflow-y: auto;
   box-sizing: border-box;
 }
@@ -660,16 +546,18 @@ function toggleTree(key: keyof typeof expandedTree) {
 
 /* Figma 分离竖条：6px 圆角条 #c2c7e8 */
 .content-divider {
-  width: 0;
+  width: 6px;
   flex-shrink: 0;
-  background: transparent;
-  border-left: 1px solid rgba(0, 0, 0, 0.06);
+  background: #c2c7e8;
+  border-radius: 100px;
   margin: 0;
   align-self: stretch;
 }
 
-/* 公司资料内容区：白底 #cedbfa 边框，可滚动并显示滚动条（宽度由 .panel-right 决定） */
+/* 公司资料内容区：556px 白底 #cedbfa 边框，可滚动并显示滚动条 */
 .content-right {
+  flex: 0 0 556px;
+  min-width: 280px;
   padding: 0;
   overflow-y: auto;
   border: 1px solid #cedbfa;
