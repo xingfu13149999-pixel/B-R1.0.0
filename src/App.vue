@@ -1,6 +1,14 @@
+<!--
+  应用根组件：全屏视口容器，仅渲染 router-view（具体页面由路由决定）。
+-->
 <template>
   <div class="app-viewport">
-    <router-view />
+    <router-view v-slot="{ Component }">
+      <!-- 缓存全屏访谈页：返回项目等页面时不断开录音与转写 -->
+      <keep-alive include="Interview">
+        <component :is="Component" />
+      </keep-alive>
+    </router-view>
   </div>
 </template>
 

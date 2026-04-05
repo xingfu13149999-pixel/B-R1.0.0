@@ -1,3 +1,8 @@
+<!--
+  项目详情页（路由：/project/:projectId，name: HomeProject）
+  作用：侧栏选中某一「项目」节点后展示的主内容区——项目标题与授信指标、入口「访谈记录 / 授信报告」，
+  下方嵌入 ProjectOnepage（项目概览 + 风险评估）。修改项目页布局、头部按钮与跳转请改本文件。
+-->
 <template>
   <div class="home-page">
     <div class="content-panel">
@@ -10,24 +15,22 @@
           <div class="company-info">
             <h1 class="company-name">{{ projectTitle }}</h1>
             <div class="company-metrics">
-              <span class="metric"
-                ><em class="metric-label">授信总额</em><em class="metric-value">1.2亿</em></span
-              >
-              <span class="metric"
-                ><em class="metric-label">敞口额度</em><em class="metric-value">0.5亿</em></span
-              >
-              <span class="metric"
-                ><em class="metric-label">信用评级</em><em class="metric-value">A</em></span
-              >
-              <span class="metric"
-                ><em class="metric-label">担保方式</em
-                ><em class="metric-value metric-value--green">保证担保</em></span
+              <span
+                v-for="(m, idx) in projectHeaderMetrics"
+                :key="m.label + idx"
+                class="metric"
+                ><em class="metric-label">{{ m.label }}</em
+                ><em class="metric-value" :class="{ 'metric-value--green': m.highlight }">{{ m.value }}</em></span
               >
             </div>
           </div>
           <div class="project-header-actions">
-            <button type="button" class="project-action-btn project-action-btn--outline">访谈记录</button>
-            <button type="button" class="project-action-btn project-action-btn--solid">授信报告</button>
+            <button type="button" class="project-action-btn project-action-btn--outline" @click="goInterviewRecords">
+              访谈记录
+            </button>
+            <button type="button" class="project-action-btn project-action-btn--solid" @click="goCreditReport">
+              授信报告
+            </button>
           </div>
         </div>
       </div>
@@ -37,7 +40,7 @@
 
       <!-- Figma 内容区 p-[10px]、全宽单列：项目概览 + 风险评估（见 ProjectOnepage） -->
       <div class="project-main">
-        <ProjectOnepage />
+        <ProjectOnepage :project-id="effectiveProjectId" />
       </div>
     </div>
   </div>
@@ -45,18 +48,65 @@
 
 <script setup lang="ts">
 import { computed, inject } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { trackProjectNodeForDisplay, type CustomerTreeItem } from '@/views/home/mock/customerTree'
+import { getProjectHeaderMetrics } from '@/views/home/mock/projectViewData'
 import ProjectOnepage from './components/ProjectOnepage.vue'
-import companyLogo from '@/assets/images/home/company-logo.png'
+
+/** 与 CustomerHome 一致：public 路径保证 Logo 稳定可访问 */
+const companyLogo = `${import.meta.env.BASE_URL}images/company-logo.png`
+
+const props = defineProps<{
+  /** 路由 props: true 注入，与 route.params.projectId 一致 */
+  projectId?: string
+}>()
 
 const route = useRoute()
+const router = useRouter()
+
 /** 由 AdminLayout 根据左侧树数据解析，与路由 projectId 解耦 */
 const findCustomerName = inject<(id: string) => string>('findCustomerName', () => '')
+const findProjectNode = inject<(id: string) => CustomerTreeItem | null>('findProjectNode', () => null)
+
+function routeProjectId(): string {
+  const p = route.params.projectId
+  if (Array.isArray(p)) return p[0] ?? ''
+  return typeof p === 'string' ? p : ''
+}
+
+/** 优先用路由 props，避免从子页返回时 params 未同步导致空数据 */
+const effectiveProjectId = computed(() => {
+  const fromProp = props.projectId?.trim()
+  if (fromProp) return fromProp
+  return routeProjectId()
+})
+
+function goCreditReport() {
+  const id = effectiveProjectId.value
+  if (id) {
+    router.push({ name: 'CreditReport', params: { projectId: id } })
+  }
+}
+
+function goInterviewRecords() {
+  const id = effectiveProjectId.value
+  if (id) {
+    router.push({ name: 'InterviewRecords', params: { projectId: id } })
+  }
+}
+
 const projectTitle = computed(() => {
-  const id = route.params.projectId as string | undefined
+  const id = effectiveProjectId.value
   if (!id) return '项目详情'
   const name = findCustomerName(id)
   return name || '项目详情'
+})
+
+const projectHeaderMetrics = computed(() => {
+  const id = effectiveProjectId.value || undefined
+  const node = id ? findProjectNode(id) : null
+  trackProjectNodeForDisplay(node)
+  return getProjectHeaderMetrics(id, node)
 })
 </script>
 

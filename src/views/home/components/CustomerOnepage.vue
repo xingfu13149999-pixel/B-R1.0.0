@@ -1,3 +1,8 @@
+<!--
+  客户首页「一页纸」区块（由 CustomerHome 引用，非项目详情页）
+  作用：展示客户维度下的多卡片摘要（标题、更新时间、正文、标签）；项目级详情请使用 ProjectHome + ProjectOnepage。
+  修改卡片列表与样式请改本文件。
+-->
 <template>
   <!-- 客户首页「一页纸」：仅客户维度卡片（项目页见独立路由 ProjectHome + ProjectOnepage） -->
   <div class="detail-cards">
@@ -17,49 +22,15 @@
 </template>
 
 <script setup lang="ts">
-const detailSections = [
-  {
-    title: '企业概况',
-    updateTime: '10:38:57',
-    content:
-      '四川晨光博达新材料有限公司是成都晨光博达新材料股份有限公司(国家级专精特新\"小巨人\")的全资子公司，专注于氟硅高分子新材料研发制造，专注于氟硅高分子新材料研发制造，专注于氟硅高分子新材料研发制造，专注于氟硅高分子。该公司成立于2019年01月25日..',
-    tags: [
-      { text: '国家专精特新\"小巨人\"', type: 'blue' },
-      { text: '省级企业技术中心', type: 'yellow' },
-      { text: '核心技术国产替代', type: 'green' },
-      { text: 'MQ硅树脂销量翻倍', type: 'red' }
-    ]
-  },
-  {
-    title: '股权结构',
-    updateTime: '08:38:46',
-    content:
-      '四川晨光博达新材料有限公司是成都晨光博达新材料股份有限公司的全资子公司(持股100%)，母公司股权结构分散，主要股东包括自然人刘皓(持股约17.54%)、机构投资...',
-    tags: [
-      { text: '股权结构清晰', type: 'yellow' },
-      { text: '法人独资子公司', type: 'blue' },
-      { text: '无实际控制', type: 'red' }
-    ]
-  },
-  {
-    title: '经营状况分析',
-    updateTime: '07:38:52',
-    content:
-      '四川晨光博达新材料有限公司的氟硅高端精细化学品项目在产业政策符合性、园区选址、环境准入及危险化学品经营资质等关键环节符合行业准入条件。公司核心产品包括打破国外...',
-    tags: [
-      { text: '冰芯冷却液', type: 'green' },
-      { text: '销量增长显著', type: 'yellow' },
-      { text: '智改数转', type: 'blue' }
-    ]
-  },
-  {
-    title: '核心竞争力',
-    updateTime: '05:28:23',
-    content:
-      '公司主要生产全氟聚醚油(E)、环保型含氣表面活性剂(FSA)、MQ硅树脂(MQ)。全氟聚醚油(PEPF)设计产能300吨/年，该产品每年可为企业带来的收入为:8t*65w/t*12月=6240W年...',
-    tags: [{ text: 'MQ硅树脂(MQ)', type: 'green' }]
-  }
-]
+import { computed } from 'vue'
+import { getCustomerDetailSections } from '@/views/home/mock/customerViewData'
+
+const props = defineProps<{
+  /** 与左侧树选中节点一致，由 AdminLayout + Pinia 同步 */
+  customerId: string | null
+}>()
+
+const detailSections = computed(() => getCustomerDetailSections(props.customerId))
 </script>
 
 <style scoped>

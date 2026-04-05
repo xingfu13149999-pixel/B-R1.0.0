@@ -1,3 +1,1 @@
-<svg preserveAspectRatio="xMidYMid meet" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path id="&#230;&#151;&#182;&#233;&#151;&#180;" d="M7 14C3.1339 14 0 10.8661 0 7C0 3.1339 3.1339 0 7 0C10.8661 0 14 3.1339 14 7C14 10.8661 10.8661 14 7 14ZM7.7 7V3.5H6.3V8.4H10.5V7H7.7Z" fill="#A6A6A6"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14"><path fill="#a6a6a6" d="M7 14A7 7 0 1 1 7 0a7 7 0 0 1 0 14m.7-7V3.5H6.3v4.9h4.2V7z"/></svg>

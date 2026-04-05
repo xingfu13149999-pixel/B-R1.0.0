@@ -1,3 +1,6 @@
+<!--
+  登录页（路由 /login）：背景图 + 品牌区 + 登录表单（演示账号校验后进入首页）。
+-->
 <template>
   <div class="login-page">
     <div class="login-bg" aria-hidden="true">
@@ -23,10 +26,8 @@
               v-model="form.authType"
               placeholder="接口认证"
               class="login-select full-width"
+              :suffix-icon="LoginChevronIcon"
             >
-              <template #suffix>
-                <img :src="loginChevronUrl" alt="" class="login-select-chevron" />
-              </template>
               <el-option label="密码认证" value="password" />
               <el-option label="指纹认证" value="fingerprint" />
               <el-option label="接口认证" value="api" />
@@ -53,13 +54,28 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { defineComponent, h, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import loginBg from '@/assets/images/login/login-bg.jpg'
-import loginLogo from '@/assets/images/login/login-logo.png'
+import { ElMessage } from 'element-plus'
+import loginBg from '@/assets/images/login/login-bg.svg'
+import loginLogo from '@/assets/images/header/logo.png'
 import loginMaskUrl from '@/assets/images/login/login-mask.svg?url'
 import loginChevronUrl from '@/assets/images/login/login-chevron.svg?url'
 import loginDividerUrl from '@/assets/images/login/login-divider.svg?url'
+
+/** 下拉箭头：使用设计稿 SVG，作为 el-select 的 suffix-icon 传入 */
+const LoginChevronIcon = defineComponent({
+  name: 'LoginChevronIcon',
+  setup() {
+    return () =>
+      h('img', {
+        src: loginChevronUrl,
+        alt: '',
+        class: 'login-select-chevron',
+        draggable: false
+      })
+  }
+})
 
 const router = useRouter()
 
@@ -78,6 +94,10 @@ const form = reactive({
 })
 
 function onLogin() {
+  if (form.account !== 'admin' || form.password !== '123') {
+    ElMessage.error('账号或密码错误')
+    return
+  }
   router.push('/')
 }
 </script>
@@ -252,15 +272,27 @@ function onLogin() {
   min-height: 60px;
 }
 
-.login-form :deep(.el-select__caret) {
-  display: none;
+/* el-icon 默认 1em×1em 正方形，会把横向 chevron 压扁；改为随内容宽高 */
+/* 左移须与展开时的 rotate 写在同一元素上，否则子 img 的 offset 会随父级旋转，上下箭头视觉错位 */
+.login-form :deep(.el-select .el-select__caret.el-icon) {
+  width: auto;
+  height: auto;
+  line-height: 0;
+  flex-shrink: 0;
+  transform: translateX(-6px) rotateZ(0deg);
 }
 
-.login-select-chevron {
+.login-form :deep(.el-select .el-select__caret.el-icon.is-reverse) {
+  transform: translateX(-6px) rotateZ(180deg);
+}
+
+.login-form :deep(.login-select-chevron) {
   display: block;
   width: 17px;
-  height: 10px;
+  height: auto;
+  aspect-ratio: 17.143 / 10;
   object-fit: contain;
+  flex-shrink: 0;
 }
 
 .login-btn {

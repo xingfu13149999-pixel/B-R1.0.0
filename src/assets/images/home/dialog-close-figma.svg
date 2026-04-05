@@ -1,6 +1,1 @@
-<svg width="18.3392" height="18.3265" viewBox="0 0 18.3392 18.3265" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g id="&#229;&#133;&#179;&#233;&#151;&#173;">
-<line id="Line 60" x1="1.5" y1="16.2052" x2="16.2052" y2="1.5" stroke="var(--stroke-0, #8A92A6)" stroke-width="3" stroke-linecap="round"/>
-<line id="Line 61" x1="1.5" y1="-1.5" x2="22.2962" y2="-1.5" transform="matrix(-0.707107 -0.707107 -0.707107 0.707107 16.8392 18.3265)" stroke="var(--stroke-0, #8A92A6)" stroke-width="3" stroke-linecap="round"/>
-</g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="18.339" height="18.326" fill="none" viewBox="0 0 18.339 18.326"><g stroke="var(--stroke-0, #8a92a6)" stroke-linecap="round" stroke-width="3"><path d="M1.5 16.205 16.205 1.5M16.84 16.205 2.133 1.5"/></g></svg>

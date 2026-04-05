@@ -1,0 +1,33 @@
+/* OPPO Sans — 字重与文件名对应：L Light / R Regular / M Medium / B Bold / H Heavy */
+
+@font-face {
+  font-family: 'OPPO Sans';
+  src: url('./oppo sans/OPPOSans-R.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OPPO Sans';
+  src: url('./oppo sans/OPPOSans-M.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OPPO Sans';
+  src: url('./oppo sans/OPPOSans-B.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OPPO Sans';
+  src: url('./oppo sans/OPPOSans-H.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}

@@ -1,3 +1,6 @@
+<!--
+  新增/编辑项目弹窗（由 AdminLayout 侧栏「添加项目」等触发）：表单字段与校验，成功后回写侧栏树。
+-->
 <template>
   <el-dialog
     v-model="dialogVisible"
@@ -11,7 +14,7 @@
       <div class="dialog-header">
         <div class="header-left">
           <img class="header-icon" :src="iconAdd" alt="" />
-          <span class="header-title">新增项目</span>
+          <span class="header-title">{{ dialogTitle }}</span>
         </div>
         <img class="close-icon" :src="iconClose" alt="" @click="handleClose" />
       </div>
@@ -69,13 +72,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import iconAdd from '@/assets/images/home/dialog-add-figma.svg'
 import iconClose from '@/assets/images/home/dialog-close-figma.svg'
 
-interface ProjectForm {
+export interface ProjectForm {
   name: string
   businessType: string
   creditTotal: string
@@ -84,9 +87,17 @@ interface ProjectForm {
   creditTerm: string
 }
 
-const props = defineProps<{
-  visible: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    visible: boolean
+    title?: string
+    initialData?: Partial<ProjectForm> | null
+  }>(),
+  {
+    title: '新增项目',
+    initialData: null
+  }
+)
 
 const emit = defineEmits<{
   'update:visible': [value: boolean]
@@ -98,9 +109,11 @@ const dialogVisible = computed({
   set: value => emit('update:visible', value)
 })
 
+const dialogTitle = computed(() => props.title)
+
 const formRef = ref<FormInstance>()
 
-const formData = reactive<ProjectForm>({
+const createEmptyForm = (): ProjectForm => ({
   name: '',
   businessType: '常规类授信业务',
   creditTotal: '',
@@ -108,6 +121,25 @@ const formData = reactive<ProjectForm>({
   reliefTotal: '',
   creditTerm: ''
 })
+
+const formData = reactive<ProjectForm>(createEmptyForm())
+
+function fillForm(data?: Partial<ProjectForm> | null) {
+  const next = { ...createEmptyForm(), ...(data ?? {}) }
+  formData.name = next.name
+  formData.businessType = next.businessType || '常规类授信业务'
+  formData.creditTotal = next.creditTotal
+  formData.exposureLimit = next.exposureLimit
+  formData.reliefTotal = next.reliefTotal
+  formData.creditTerm = next.creditTerm
+}
+
+watch(
+  () => props.visible,
+  visible => {
+    if (visible) fillForm(props.initialData)
+  }
+)
 
 const formRules: FormRules<ProjectForm> = {
   name: [{ required: true, message: '请输入项目名称', trigger: 'blur' }],
@@ -120,6 +152,7 @@ const formRules: FormRules<ProjectForm> = {
 
 const handleClose = () => {
   formRef.value?.resetFields()
+  fillForm(null)
   emit('update:visible', false)
 }
 
@@ -129,7 +162,7 @@ const handleConfirm = async () => {
   await formRef.value.validate(valid => {
     if (valid) {
       emit('success', { ...formData })
-      ElMessage.success('项目添加成功')
+      ElMessage.success(props.title.includes('编辑') ? '项目编辑成功' : '项目添加成功')
       handleClose()
     }
   })

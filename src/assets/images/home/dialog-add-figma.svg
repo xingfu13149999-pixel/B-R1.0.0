@@ -1,12 +1,1 @@
-<svg width="20" height="20" viewBox="0 0 20 20" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g id="&#230;&#150;&#176;&#229;&#162;&#158;" clip-path="url(#clip0_0_99)">
-<g id="Vector">
-</g>
-<path id="Vector_2" d="M14 6.10352e-05L19 5.00006V19.0081C18.9997 19.2712 18.895 19.5236 18.7088 19.7096C18.5226 19.8956 18.2702 20.0001 18.007 20.0001H1.993C1.73038 19.9982 1.47902 19.8932 1.29322 19.7075C1.10742 19.5219 1.00209 19.2707 1 19.0081V0.992061C1 0.444061 1.445 6.10352e-05 1.993 6.10352e-05H14ZM9 9.00006H6V11.0001H9V14.0001H11V11.0001H14V9.00006H11V6.00006H9V9.00006Z" fill="var(--fill-0, #21243D)"/>
-</g>
-<defs>
-<clipPath id="clip0_0_99">
-<rect width="20" height="20" fill="white"/>
-</clipPath>
-</defs>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 20 20"><g clip-path="url(#a)"><path fill="var(--fill-0, #21243d)" d="m14 0 5 5v14.008a.993.993 0 0 1-.993.992H1.993A1 1 0 0 1 1 19.008V.992C1 .444 1.445 0 1.993 0zM9 9H6v2h3v3h2v-3h3V9h-3V6H9z"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h20v20H0z"/></clipPath></defs></svg>

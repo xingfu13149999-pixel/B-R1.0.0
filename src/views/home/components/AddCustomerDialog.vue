@@ -1,3 +1,6 @@
+<!--
+  新增/编辑客户弹窗（由 AdminLayout 触发）：客户表单项，成功后刷新侧栏树数据。
+-->
 <template>
   <el-dialog
     v-model="dialogVisible"
@@ -137,7 +140,7 @@ const handleSave = async () => {
   await formRef.value.validate(valid => {
     if (valid) {
       emit('success', { ...formData })
-      ElMessage.success('客户添加成功')
+      ElMessage.success(props.title.includes('编辑') ? '客户编辑成功' : '客户添加成功')
       handleClose()
     }
   })

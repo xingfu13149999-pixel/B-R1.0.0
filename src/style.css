@@ -1,9 +1,15 @@
+/**
+ * 全局样式：设计尺寸 CSS 变量、Element Plus 字体覆盖、滚动条与通用工具类（全站引入于 main.ts）。
+ */
 :root {
   --design-width: 1920px;
   --design-height: 1080px;
   --primary-color: #2036ca;
   --sidebar-width: 280px;
   --header-height: 77px;
+
+  /* Element Plus 组件字体（在 element-plus 样式之后由本文件覆盖） */
+  --el-font-family: 'OPPO Sans', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, sans-serif;
 
   /* 统一原生滚动条样式（与平板端 ai-admin 一致） */
   --scrollbar-size: 5px;
@@ -18,7 +24,7 @@ html, body, #app {
   width: 100%;
   height: 100%;
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: 'OPPO Sans', 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-weight: 400;
   overflow: hidden;
 }

@@ -1,3 +1,7 @@
+/**
+ * 全局 Pinia 仓库：深色模式、当前用户名、客户类型（集团/单一）、侧栏选中客户等。
+ * 供顶栏、侧栏与各业务页注入使用。
+ */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 

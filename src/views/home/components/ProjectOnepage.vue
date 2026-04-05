@@ -1,3 +1,8 @@
+<!--
+  项目详情正文区块（由 ProjectHome 引用）
+  作用：展示「项目概览」与「风险评估」两块卡片及字段（侧栏 projectDetail 优先，其次 mock/BY_ID）。
+  修改表格字段、进度条、风险文案样式请改本文件。
+-->
 <template>
   <!-- Figma 1:8824 项目二级页：项目概览 + 风险评估 -->
   <div class="project-onepage">
@@ -97,39 +102,42 @@
 </template>
 
 <script setup lang="ts">
+import { computed, inject } from 'vue'
+import { useRoute } from 'vue-router'
+import { trackProjectNodeForDisplay, type CustomerTreeItem } from '@/views/home/mock/customerTree'
+import { resolveProjectOverview, resolveProjectRisk } from '@/views/home/mock/projectViewData'
 import iconOnepageUnderline from '@/assets/images/home/icon-onepage-underline.svg'
 
-const projectOverview = {
-  row1: [
-    { label: '申报方式', value: '常规类授信业务' },
-    { label: '综合授信额度(敞口+缓释)', value: '12000万' },
-    { label: '敞口额度', value: '5000万' },
-    { label: '缓释额度', value: '7000万' }
-  ],
-  row2: [
-    { label: '担保方式', value: '保证担保' },
-    { label: '授信期限', value: '一年' },
-    { label: '授信方式', value: '存量扩盘授信' }
-  ],
-  managementLabel: '管理要求',
-  managementLines: [
-    '为了实现组织目标而设定的行为规范和绩效标准体系。它连接了战略与执行，平衡了效率与控制，并定义了组织的运作方式。好的管理要求应当是：1. 切合实际，可执行； 2. 易于理解，无歧义；',
-    '3. 不自相矛盾； 4. 与目标和价值创造相关。'
-  ]
-}
+const props = defineProps<{
+  /** 由 ProjectHome 传入（路由 props），优先于 useRoute 避免返回后无 projectId */
+  projectId?: string
+}>()
 
-const riskAssessment = {
-  riskLevel: { label: '风险等级', value: 'A+' },
-  dueDiligence: { label: '尽调进度', percent: '53%' },
-  assetLiability: { label: '资产负债率', percent: '80%' },
-  riskHint: {
-    label: '风险提示',
-    lines: [
-      '为了实现组织目标而设定的行为规范和绩效标准体系。它连接了战略与执行，平衡了效率与控制，并定义了组织的运作方式。好的管理要求应当是：1. 切合实际，可执行； 2. 易于理解，无歧义；',
-      '3. 不自相矛盾； 4. 与目标和价值创造相关。'
-    ]
-  }
-}
+const route = useRoute()
+
+const findProjectNode = inject<(id: string) => CustomerTreeItem | null>('findProjectNode', () => null)
+
+const resolvedProjectId = computed(() => {
+  const fromProp = props.projectId?.trim()
+  if (fromProp) return fromProp
+  const p = route.params.projectId
+  if (Array.isArray(p)) return p[0] ?? ''
+  return typeof p === 'string' ? p : ''
+})
+
+const projectOverview = computed(() => {
+  const id = resolvedProjectId.value || undefined
+  const node = id ? findProjectNode(id) : null
+  trackProjectNodeForDisplay(node)
+  return resolveProjectOverview(id, node)
+})
+
+const riskAssessment = computed(() => {
+  const id = resolvedProjectId.value || undefined
+  const node = id ? findProjectNode(id) : null
+  trackProjectNodeForDisplay(node)
+  return resolveProjectRisk(id, node)
+})
 </script>
 
 <style scoped>
