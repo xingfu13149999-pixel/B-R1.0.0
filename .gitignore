@@ -5,3 +5,6 @@ dist
 .DS_Store
 .mcp.json
 *.tsbuildinfo
+
+# Claude Code — 本机配置（可能含密钥），勿提交
+.claude/settings.local.json
