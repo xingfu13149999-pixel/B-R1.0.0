@@ -39,40 +39,6 @@
           <span>访谈字幕</span>
         </button>
       </div>
-      <el-dropdown
-        v-if="record"
-        trigger="click"
-        placement="bottom-end"
-        popper-class="figma-interview-more-popper"
-        :disabled="resummarizing"
-        @command="onDropdownCommand"
-      >
-        <button
-          type="button"
-          class="ir-more-btn"
-          aria-label="更多操作"
-          :aria-busy="resummarizing"
-          @click.stop
-        >
-          <img class="ir-more-btn__img" :src="iconMore" alt="" width="18" height="18" />
-        </button>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item command="resummarize" :disabled="resummarizing">
-              <span class="figma-more-menu-row">
-                <img class="figma-more-menu-row__ico" :src="iconMenuResummarize" alt="" width="24" height="24" />
-                <span>重新总结</span>
-              </span>
-            </el-dropdown-item>
-            <el-dropdown-item command="delete">
-              <span class="figma-more-menu-row">
-                <img class="figma-more-menu-row__ico" :src="iconMenuDelete" alt="" width="24" height="24" />
-                <span>删除</span>
-              </span>
-            </el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
     </div>
 
     <div class="ir-detail__card">
@@ -114,11 +80,16 @@
           <div class="ir-summary-embed">
             <InterviewSummaryPanel
               v-if="record"
-              ref="summaryPanelRef"
-              :segments="record.segments"
+              :key="`${record.id}-sum-${displaySegments.length}`"
+              :segments="displaySegments"
               recorder-status="stopped"
               :is-viewing-history="true"
-              :stored-summary-blocks="record.summaryBlocks ?? null"
+              :stored-summary-blocks="displaySummaryBlocks"
+              :suppress-history-summary-request="
+                record.status === 'recording' &&
+                !displaySummaryBlocks?.length &&
+                !displaySegments.length
+              "
               :show-sync-footer="false"
             />
           </div>
@@ -144,23 +115,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { useAppStore } from '@/stores/app'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import InterviewSummaryPanel from '@/views/home/components/InterviewSummaryPanel.vue'
+import type { InterviewTranscriptSegment } from '@/views/home/composables/useInterviewTranscription'
+import type { ProjectInterviewRecord } from '@/views/home/utils/interviewRecordsStorage'
 import {
-  deleteProjectInterviewRecord,
-  updateProjectInterviewRecord,
-  type ProjectInterviewRecord
-} from '@/views/home/utils/interviewRecordsStorage'
-import { clearInterviewSessionCachesForProject } from '@/views/home/utils/interviewSessionCache'
+  readInterviewLiveSummaryFromSession,
+  readInterviewTranscriptSegmentsFromSession
+} from '@/views/home/utils/interviewSessionCache'
 /** Tab 图标与 Figma 1:13248 头部导航一致：实时总结、思维导图、访谈字幕 */
 import irTabSummarySvg from '@/assets/images/interview/ir-tab-summary.svg?raw'
 import irTabMindmapSvg from '@/assets/images/interview/ir-tab-mindmap.svg?raw'
 import irTabSubtitlesSvg from '@/assets/images/interview/ir-tab-subtitles.svg?raw'
-import iconMore from '@/assets/images/interview/ir-detail-more.svg'
-import iconMenuResummarize from '@/assets/images/interview/ir-menu-resummarize.svg'
-import iconMenuDelete from '@/assets/images/interview/ir-menu-delete.svg'
 
 const props = defineProps<{
   record: ProjectInterviewRecord | null
@@ -170,10 +136,34 @@ const emit = defineEmits<{
   openInterview: []
 }>()
 
-const appStore = useAppStore()
+/** 录音未结束时，字幕/总结主要在 sessionStorage；localStorage 条目标记仍为「录音中」且 segments 常为空，详情需合并 session 避免刷新后空白 */
+const sessionHydrateTick = ref(0)
+function bumpSessionHydrate() {
+  sessionHydrateTick.value++
+}
 
-const summaryPanelRef = ref<InstanceType<typeof InterviewSummaryPanel> | null>(null)
-const resummarizing = ref(false)
+const displaySegments = computed((): InterviewTranscriptSegment[] => {
+  sessionHydrateTick.value
+  const r = props.record
+  if (!r) return []
+  const base = r.segments ?? []
+  if (r.status === 'recording') {
+    const live = readInterviewTranscriptSegmentsFromSession(r.projectId)
+    if (live?.length) return live
+  }
+  return base
+})
+
+const displaySummaryBlocks = computed(() => {
+  sessionHydrateTick.value
+  const r = props.record
+  if (!r) return null
+  if (r.summaryBlocks?.length) return r.summaryBlocks
+  if (r.status === 'recording') {
+    return readInterviewLiveSummaryFromSession(r.projectId)
+  }
+  return null
+})
 
 type TabId = 'summary' | 'mindmap' | 'subtitles'
 const activeTab = ref<TabId>('summary')
@@ -185,90 +175,46 @@ watch(
   }
 )
 
+let sessionPollTimer: ReturnType<typeof setInterval> | null = null
+
+watch(
+  () => props.record?.status === 'recording',
+  isRec => {
+    if (sessionPollTimer) {
+      clearInterval(sessionPollTimer)
+      sessionPollTimer = null
+    }
+    if (isRec) {
+      sessionPollTimer = setInterval(() => bumpSessionHydrate(), 1500)
+    }
+  },
+  { immediate: true }
+)
+
+function onWindowStorage(ev: StorageEvent) {
+  if (ev.storageArea !== sessionStorage) return
+  const pid = props.record?.projectId?.trim()
+  if (!pid || !ev.key) return
+  if (!ev.key.includes(pid)) return
+  bumpSessionHydrate()
+}
+
+onMounted(() => {
+  window.addEventListener('pd-interview-record-saved', bumpSessionHydrate)
+  window.addEventListener('storage', onWindowStorage)
+})
+
+onUnmounted(() => {
+  if (sessionPollTimer) {
+    clearInterval(sessionPollTimer)
+    sessionPollTimer = null
+  }
+  window.removeEventListener('pd-interview-record-saved', bumpSessionHydrate)
+  window.removeEventListener('storage', onWindowStorage)
+})
+
 function emitOpenInterview() {
   emit('openInterview')
-}
-
-function isRecording(r: ProjectInterviewRecord) {
-  return r.status === 'recording'
-}
-
-function onDropdownCommand(cmd: string) {
-  if (cmd === 'resummarize') void onResummarize()
-  else if (cmd === 'delete') void confirmDeleteRecord()
-}
-
-async function onResummarize() {
-  const r = props.record
-  if (!r) return
-  if (isRecording(r)) {
-    ElMessage.warning('该条录音尚未结束，请先在访谈页结束录音后再重新总结')
-    return
-  }
-  if (!r.segments?.length) {
-    ElMessage.warning('暂无访谈字幕，无法重新总结')
-    return
-  }
-  resummarizing.value = true
-  try {
-    await summaryPanelRef.value?.regenerateHistorySummary?.()
-    await summaryPanelRef.value?.waitForSummaryIdle?.(60000)
-    const blocks = summaryPanelRef.value?.getSummaryBlocks?.() ?? []
-    if (!blocks.length) {
-      ElMessage.warning('未生成总结内容，请检查网络或 API 配置')
-      summaryPanelRef.value?.endRegenerateHistory?.()
-      return
-    }
-    updateProjectInterviewRecord(r.projectId, r.id, {
-      summaryBlocks: blocks,
-      summarizerName: appStore.currentUser.name,
-      summaryGeneratedAt: Date.now()
-    })
-    window.dispatchEvent(new CustomEvent('pd-interview-record-saved', { detail: { projectId: r.projectId } }))
-    await nextTick()
-    await nextTick()
-    summaryPanelRef.value?.endRegenerateHistory?.()
-    ElMessage.success('已重新生成总结')
-  } catch (e) {
-    console.error(e)
-    summaryPanelRef.value?.endRegenerateHistory?.()
-    ElMessage.error('重新总结失败，请稍后重试')
-  } finally {
-    resummarizing.value = false
-  }
-}
-
-async function confirmDeleteRecord() {
-  const r = props.record
-  if (!r) return
-  if (isRecording(r)) {
-    ElMessage.warning('该条录音尚未结束，请先在访谈页结束录音后再删除')
-    return
-  }
-  try {
-    await ElMessageBox.confirm(
-      '确定删除该条访谈记录？删除后将清除该项目下本地缓存的实时总结、字幕与关键热词。',
-      '删除访谈记录',
-      {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-  } catch {
-    return
-  }
-  const projectId = r.projectId
-  if (!deleteProjectInterviewRecord(projectId, r.id)) {
-    ElMessage.error('删除失败')
-    return
-  }
-  clearInterviewSessionCachesForProject(projectId)
-  window.dispatchEvent(new CustomEvent('pd-interview-record-saved', { detail: { projectId } }))
-  window.dispatchEvent(
-    new CustomEvent('pd-interview-session-cache-cleared', { detail: { projectId } })
-  )
-  ElMessage.success('已删除')
 }
 
 const summaryTheme = computed(() => props.record?.title?.trim() || '—')
@@ -288,11 +234,10 @@ const summaryDate = computed(() =>
 )
 
 const subtitleLines = computed(() => {
-  const r = props.record
-  if (!r?.segments?.length) return []
-  return r.segments
-    .map(s => (s.text || '').trim())
-    .filter(Boolean)
+  sessionHydrateTick.value
+  const segs = displaySegments.value
+  if (!segs.length) return []
+  return segs.map(s => (s.text || '').trim()).filter(Boolean)
 })
 
 function formatInterviewDateTime(rec: ProjectInterviewRecord | null) {
@@ -341,7 +286,7 @@ function formatDurationCn(ms: number) {
 .ir-detail__head {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   margin-bottom: 16px;
   flex-shrink: 0;
@@ -349,35 +294,6 @@ function formatDurationCn(ms: number) {
 
 .ir-detail__head .ir-detail__tabs {
   margin-bottom: 0;
-}
-
-.ir-more-btn {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.ir-more-btn:hover {
-  background: rgba(32, 54, 202, 0.08);
-}
-
-.ir-more-btn[aria-busy='true'] {
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-.ir-more-btn__img {
-  display: block;
-  opacity: 0.85;
 }
 
 .ir-detail__tabs {
@@ -577,19 +493,5 @@ function formatDurationCn(ms: number) {
 
 .ir-open-btn:hover {
   background: #f5f7ff;
-}
-
-.figma-more-menu-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.figma-more-menu-row__ico {
-  flex-shrink: 0;
-  display: block;
-  width: 24px;
-  height: 24px;
-  object-fit: contain;
 }
 </style>

@@ -63,6 +63,7 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAppStore } from '@/stores/app'
 import { trackProjectNodeForDisplay, type CustomerTreeItem } from '@/views/home/mock/customerTree'
 import { getProjectHeaderMetrics } from '@/views/home/mock/projectViewData'
 import InterviewRecordDetailPanel from './components/InterviewRecordDetailPanel.vue'
@@ -77,20 +78,27 @@ const props = defineProps<{
 
 const route = useRoute()
 const router = useRouter()
+const appStore = useAppStore()
 
 const findCustomerName = inject<(id: string) => string>('findCustomerName', () => '')
 const findProjectNode = inject<(id: string) => CustomerTreeItem | null>('findProjectNode', () => null)
 
 function routeProjectId(): string {
   const p = route.params.projectId
-  if (Array.isArray(p)) return p[0] ?? ''
-  return typeof p === 'string' ? p : ''
+  const raw = Array.isArray(p) ? p[0] ?? '' : typeof p === 'string' ? p : ''
+  return raw.trim()
 }
 
+/**
+ * 与 localStorage `pd-admin-interviews:{projectId}` 的键一致，须与开始访谈页 `nodeId` 相同。
+ * 优先使用路由 params：全页刷新时 params 已就绪，props 偶发滞后会导致空 id、列表误读为空。
+ */
 const effectiveProjectId = computed(() => {
+  const fromRoute = routeProjectId()
+  if (fromRoute) return fromRoute
   const fromProp = props.projectId?.trim()
   if (fromProp) return fromProp
-  return routeProjectId()
+  return ''
 })
 
 const projectTitle = computed(() => {
@@ -157,8 +165,18 @@ onUnmounted(() => {
 watch(
   () => effectiveProjectId.value,
   (newPid, oldPid) => {
-    if (newPid !== oldPid) selectedRecordId.value = null
-  }
+    const n = (typeof newPid === 'string' ? newPid : '').trim()
+    const o = (typeof oldPid === 'string' ? oldPid : '').trim()
+    if (n) appStore.setSelectedCustomer(n)
+    if (!n) {
+      /** 仅当曾解析出过 projectId 再变空时清空（避免路由尚未就绪时首帧 n 为空误清 recordId） */
+      if (o) selectedRecordId.value = null
+      return
+    }
+    /** 仅「已有一个确定的项目 id」切换为另一个时清空；避免 '' → 首屏 projectId hydrate 时误清 recordId */
+    if (o && o !== n) selectedRecordId.value = null
+  },
+  { immediate: true }
 )
 
 watch(
@@ -175,7 +193,10 @@ function openInterviewFromDetail() {
   const id = effectiveProjectId.value
   const rid = selectedRecordId.value
   if (!id || !rid) return
-  router.push({ name: 'Interview', query: { nodeId: id, recordId: rid } })
+  router.push({
+    name: 'Interview',
+    query: { nodeId: id, recordId: rid, fromRecords: '1' }
+  })
 }
 </script>
 

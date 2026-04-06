@@ -34,7 +34,7 @@
         </p>
         <template #footer>
           <el-button @click="cancelStop">取消</el-button>
-          <el-button type="danger" @click="confirmStop">确认结束</el-button>
+          <el-button type="danger" :loading="stopConfirmInProgress" @click="confirmStop">确认结束</el-button>
         </template>
       </el-dialog>
     </div>
@@ -55,8 +55,80 @@
           role="status"
           aria-live="polite"
         >
-          <!-- 与 ai-admin InterviewDetail 一致：开始条 / 录音条（波形 + 文案 + 暂停·播放·结束）；结束录制后隐藏胶囊 -->
-          <div v-if="recorderStatus === 'idle'" class="start-bar">
+          <!-- 历史回看须优先于「session 恢复」：否则 recordId 在 URL 时会先误恢复现场再加载历史，胶囊状态错乱 -->
+          <!-- 历史「录音中」：与现场已暂停/录音中条一致（波形 + 文案 + 继续/结束），避免仅灰条无按钮 -->
+          <div
+            v-if="isViewingHistory && historyView?.status === 'recording'"
+            class="recording-bar"
+            :class="{ 'recording-bar--paused': historyRecordingCapsulePausedStyle }"
+          >
+            <div class="waveform" :class="{ 'waveform-paused': historyRecordingCapsulePausedStyle }">
+              <span v-for="(h, i) in waveBars" :key="'hist-w-' + i" class="wave-bar-wrap">
+                <span
+                  class="wave-bar-fill"
+                  :style="{
+                    animationDelay: h.delay + 's',
+                    '--h-min': h.min + 'px',
+                    '--h-max': h.max + 'px',
+                  }"
+                >
+                  <img :src="waveBarSvg" class="wave-bar-img" alt="" />
+                </span>
+              </span>
+            </div>
+            <span class="recording-text">{{ historyRecordingCapsuleText }}</span>
+            <el-tooltip content="继续录音" placement="bottom" :show-after="300">
+              <button type="button" class="ctrl-btn" @click="continueFromHistoryRecording">
+                <img :src="playBtn" alt="继续" />
+              </button>
+            </el-tooltip>
+            <el-tooltip content="结束录音" placement="bottom" :show-after="300">
+              <button type="button" class="ctrl-btn" @click="onStopClick">
+                <img :src="stopBtn" alt="结束" />
+              </button>
+            </el-tooltip>
+          </div>
+          <div
+            v-else-if="isViewingHistory"
+            class="recording-bar recording-bar--history"
+          >
+            <span class="recording-text">{{ historyBarText }}</span>
+          </div>
+
+          <!-- 刷新恢复（暂停/录音中断）：显示暂停状态 + 继续 / 结束 按钮 -->
+          <div
+            v-else-if="restoredFromSession && recorderStatus === 'idle' && capsuleDisplayStatus === 'paused'"
+            class="recording-bar recording-bar--paused"
+          >
+            <div class="waveform waveform-paused">
+              <span v-for="(h, i) in waveBars" :key="i" class="wave-bar-wrap">
+                <span
+                  class="wave-bar-fill"
+                  :style="{
+                    animationDelay: h.delay + 's',
+                    '--h-min': h.min + 'px',
+                    '--h-max': h.max + 'px',
+                  }"
+                >
+                  <img :src="waveBarSvg" class="wave-bar-img" alt="" />
+                </span>
+              </span>
+            </div>
+            <span class="recording-text">{{ recordingBarText }}</span>
+            <el-tooltip content="继续录音" placement="bottom" :show-after="300">
+              <button type="button" class="ctrl-btn" @click="resumeFromRestore">
+                <img :src="playBtn" alt="继续" />
+              </button>
+            </el-tooltip>
+            <el-tooltip content="结束录音" placement="bottom" :show-after="300">
+              <button type="button" class="ctrl-btn" @click="onStopClick">
+                <img :src="stopBtn" alt="结束" />
+              </button>
+            </el-tooltip>
+          </div>
+
+          <!-- 未开始：开始录音按钮 -->
+          <div v-else-if="recorderStatus === 'idle' && !restoredFromSession" class="start-bar">
             <el-tooltip content="开始录音" placement="bottom" :show-after="300">
               <button type="button" class="start-record-btn" @click="startRecording">
                 <img :src="recordStartBtn" alt="开始录音" />
@@ -64,6 +136,7 @@
             </el-tooltip>
           </div>
 
+          <!-- 录音中 / 已暂停 -->
           <div
             v-else-if="(recorderStatus === 'recording' || recorderStatus === 'paused') && !isViewingHistory"
             class="recording-bar"
@@ -116,7 +189,7 @@
           <InterviewSummaryPanel
             ref="summaryPanelRef"
             :segments="effectiveSegments"
-            :recorder-status="recorderStatus"
+            :recorder-status="effectiveRecorderStatus"
             :is-viewing-history="isViewingHistory"
             :interim-text="subtitleInterimText"
             :live-speaker-label="liveSpeakerLabel"
@@ -257,8 +330,14 @@
               <div v-if="hotKeywords.length" class="keyword-row">
                 <span v-for="w in hotKeywords" :key="w" class="keyword-chip">{{ w }}</span>
               </div>
-              <p v-else class="keyword-empty">
-                {{ recorderStatus === 'idle' ? '开始录音后将自动提取关键词' : '正在聆听，关键词将随对话内容实时更新...' }}
+              <p v-if="hotKeywords.length && hotKeywordsAiLoading" class="keyword-ai-hint">
+                AI 正在刷新关键热词…
+              </p>
+              <p v-else-if="!hotKeywords.length" class="keyword-empty">
+                <template v-if="hotKeywordsAiLoading">AI 正在提炼关键热词…</template>
+                <template v-else>{{
+                  recorderStatus === 'idle' ? '开始录音后将自动提取关键词' : '正在聆听，关键词将随对话内容实时更新...'
+                }}</template>
               </p>
             </div>
           </div>
@@ -313,7 +392,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import {
+  computed,
+  nextTick,
+  onActivated,
+  onBeforeMount,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  watch
+} from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import AdminHeader from '@/views/layouts/components/AdminHeader.vue'
@@ -326,16 +415,29 @@ import {
   type InterviewTranscriptSegment
 } from '@/views/home/composables/useInterviewTranscription'
 import { formatInterimTranscript } from '@/views/home/utils/interviewTranscript'
+import { extractKeywords } from '@/views/home/utils/interviewKeywordExtract'
+import {
+  fetchInterviewHotKeywordsFromTranscript,
+  MIN_TRANSCRIPT_CHARS_FOR_AI_HOT_KEYWORDS
+} from '@/views/home/utils/interviewHotKeywordsFromAi'
 import type { InterviewSummaryBlock } from '@/views/home/types/interviewSummary'
 import {
   appendProjectInterviewRecord,
+  deleteProjectInterviewRecord,
   getProjectInterviewRecord,
+  getProjectInterviewRecords,
   nextInterviewTitle,
-  updateProjectInterviewRecord
+  updateProjectInterviewRecord,
 } from '@/views/home/utils/interviewRecordsStorage'
 import {
+  clearInterviewSessionCachesForProject,
   INTERVIEW_SESSION_HOT_KEYWORDS_PREFIX,
-  INTERVIEW_SESSION_TRANSCRIPT_PREFIX
+  interviewHotKeywordsSessionKey,
+  persistInterviewTranscriptSegments,
+  persistInterviewRecorderState,
+  readInterviewRecorderState,
+  readInterviewLiveSummaryFromSession,
+  readInterviewTranscriptSegmentsFromSession
 } from '@/views/home/utils/interviewSessionCache'
 import iconBack from '@/assets/images/credit-report/icon-back.svg'
 import recordStartBtn from '@/assets/images/interview/record-start-btn.svg'
@@ -409,64 +511,6 @@ const {
   getTimelineMs: () => durationMs.value
 })
 
-const DOMAIN_KEYWORDS = new Set([
-  '营收', '负债率', '现金流', '担保', '行业周期', '订单', '利润', '毛利',
-  '净利', '资产', '负债', '应收', '应付', '成本', '收入', '融资',
-  '贷款', '还款', '授信', '风险', '合同', '客户', '供应商', '产能',
-  '产量', '库存', '账期', '逾期', '坏账', '税收', '税务', '股东',
-  '股权', '分红', '投资', '回款', '预算', '费用', '销售', '市场',
-  '政务', '游泳', '股票', '基金', '公司', '项目', '技术', '产品',
-  '方案', '需求', '目标', '计划', '进度', '质量', '数据', '系统',
-  '服务', '管理', '运营', '研发', '设计', '测试', '部署', '团队',
-])
-
-const STOP_WORDS = new Set([
-  '我们', '你们', '他们', '她们', '自己', '大家', '这个', '那个',
-  '什么', '怎么', '可以', '已经', '就是', '不是', '因为', '所以',
-  '如果', '虽然', '但是', '而且', '或者', '以及', '对于', '关于',
-  '通过', '进行', '可能', '应该', '需要', '一下', '一些', '一个',
-  '这些', '那些', '现在', '今天', '明天', '昨天', '时候', '地方',
-  '问题', '事情', '东西', '方面', '情况', '然后', '这样', '那样',
-  '比较', '其实', '还是', '你好', '能听', '听到', '知道', '觉得',
-  '说的', '的话', '好的', '就好', '没有', '有没', '对吧', '是吧',
-  '嗯嗯', '哈哈', '那么', '这么', '怎样', '哪些', '哪个', '为什么',
-])
-
-function extractKeywords(text: string): string[] {
-  if (!text || text.length < 4) return []
-  const clean = text.replace(/[，。！？、；：""''（）【】《》\s\d.,:;!?'"()\[\]{}]+/g, '')
-  if (clean.length < 4) return []
-
-  const freq = new Map<string, number>()
-  for (let len = 2; len <= 4; len++) {
-    for (let i = 0; i <= clean.length - len; i++) {
-      const gram = clean.slice(i, i + len)
-      if (STOP_WORDS.has(gram)) continue
-      freq.set(gram, (freq.get(gram) || 0) + 1)
-    }
-  }
-
-  const domain: string[] = []
-  const general: string[] = []
-  for (const [term, count] of freq) {
-    if (DOMAIN_KEYWORDS.has(term)) {
-      domain.push(term)
-    } else if (count >= 2) {
-      general.push(term)
-    }
-  }
-
-  general.sort((a, b) => (freq.get(b) ?? 0) - (freq.get(a) ?? 0))
-
-  const result: string[] = [...domain]
-  for (const t of general) {
-    if (result.length >= 8) break
-    if (result.some(r => r.includes(t) || t.includes(r))) continue
-    result.push(t)
-  }
-  return result.slice(0, 8)
-}
-
 const liveSpeakerLabel = currentSpeakerLabel
 
 const showStopConfirm = ref(false)
@@ -482,19 +526,162 @@ function formatSubtitleTimeLabel(ms: number) {
 
 const nodeId = computed(() => {
   const q = route.query.nodeId
-  if (Array.isArray(q)) return q[0] ?? ''
-  if (typeof q === 'string' && q) return q
-  const sid = appStore.selectedCustomerId
-  return typeof sid === 'string' ? sid : ''
+  let raw = ''
+  if (Array.isArray(q)) raw = q[0] ?? ''
+  else if (typeof q === 'string' && q) raw = q
+  else {
+    const sid = appStore.selectedCustomerId
+    raw = typeof sid === 'string' ? sid : ''
+  }
+  return raw.trim()
 })
 
-/** 访谈仅绑定「项目」节点；公司客户或集团父节点不可进入（与侧栏「开始访谈」一致） */
+/** 仅侧栏点击「开始访谈」时写入；F5 刷新不会写入，用于区分「新开本会话」与「刷新保留现场」 */
+const SIDEBAR_FRESH_INTENT_KEY = 'pd-interview-sidebar-fresh-intent'
+
+function consumeSidebarFreshIntent(): boolean {
+  if (typeof sessionStorage === 'undefined') return false
+  try {
+    const v = sessionStorage.getItem(SIDEBAR_FRESH_INTENT_KEY)
+    if (!v) return false
+    sessionStorage.removeItem(SIDEBAR_FRESH_INTENT_KEY)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** 去掉 URL 中的 fresh，保留 nodeId / recordId / fromRecords，不碰 sessionStorage 现场 */
+function buildInterviewQueryWithoutFresh(): Record<string, string> | null {
+  const pid = nodeId.value?.trim()
+  if (!pid) return null
+  const next: Record<string, string> = { nodeId: pid }
+  const rid = route.query.recordId
+  if (rid) {
+    const r = Array.isArray(rid) ? rid[0] : typeof rid === 'string' ? rid : ''
+    if (r) next.recordId = r
+  }
+  const frSrc = route.query.fromRecords
+  if (frSrc) {
+    const f = Array.isArray(frSrc) ? frSrc[0] : typeof frSrc === 'string' ? frSrc : ''
+    if (f) next.fromRecords = f
+  }
+  return next
+}
+
+/**
+ * 侧栏「开始访谈」带 query.fresh=时间戳：新开本会话，清同项目旧 session。
+ * 整页刷新若 URL 仍含 stale 的 fresh（例如 replace 未完成），不得清 session：由侧栏写入的
+ * sessionStorage intent 区分；无 intent 时仅 strip 掉 query.fresh。
+ */
+function shouldClearStaleInterviewSessionOnEntry(): boolean {
+  const frSrc = route.query.fromRecords
+  const fromRecordsVal = Array.isArray(frSrc) ? frSrc[0] : frSrc
+  if (String(fromRecordsVal ?? '') === '1') return false
+  const fq = route.query.fresh
+  const freshVal = Array.isArray(fq) ? fq[0] : fq
+  if (freshVal == null || String(freshVal).trim() === '') return false
+  const q = route.query.recordId
+  const hasRecord = (Array.isArray(q) ? q[0] ?? '' : typeof q === 'string' ? q : '').trim()
+  if (hasRecord) return false
+  const pid = nodeId.value?.trim()
+  if (!pid) return false
+  return true
+}
+
+/**
+ * 侧栏「开始访谈」= 新录音会话：清空本页现场数据（与新建一条访谈记录前的空白态一致）。
+ * 同页复用时子组件不会 remount，须同步清总结内存 + 退出历史回看 + 重置录音器。
+ */
+function applyFreshInterviewSessionFromSidebar() {
+  if (route.name !== 'Interview') return
+  if (!shouldClearStaleInterviewSessionOnEntry()) return
+  const pid = nodeId.value?.trim()
+  if (!pid) return
+
+  /** F5 等整页刷新：URL 可能仍带 ?fresh=，但无侧栏 intent，禁止清空现场，只规范 URL */
+  if (!consumeSidebarFreshIntent()) {
+    const next = buildInterviewQueryWithoutFresh()
+    if (next) void router.replace({ name: 'Interview', query: next })
+    return
+  }
+
+  /** 自动将未完成的「录音中」记录保存为 completed，防止点"开始访谈"丢失旧数据 */
+  const openRecordings = getProjectInterviewRecords(pid).filter(r => r.status === 'recording')
+  if (openRecordings.length) {
+    const segs = readInterviewTranscriptSegmentsFromSession(pid) ?? []
+    const savedState = readInterviewRecorderState(pid)
+    const summaryBlocks = readInterviewLiveSummaryFromSession(pid) ?? []
+    for (const rec of openRecordings) {
+      const patch: Record<string, unknown> = {
+        status: 'completed',
+        durationMs: savedState?.durationMs || rec.durationMs,
+        segments: segs.length ? JSON.parse(JSON.stringify(segs)) : rec.segments
+      }
+      if (summaryBlocks.length) {
+        patch.summaryBlocks = summaryBlocks
+        patch.summaryGeneratedAt = Date.now()
+      }
+      updateProjectInterviewRecord(pid, rec.id, patch)
+    }
+    window.dispatchEvent(new CustomEvent('pd-interview-record-saved', { detail: { projectId: pid } }))
+  }
+
+  historyView.value = null
+  currentSessionRecordId.value = null
+  lastCompletedSessionRecordId.value = null
+  interviewPersistCompleted.value = false
+  restoredSessionDurationMs.value = 0
+  restoredFromSession.value = false
+  clearInterviewSessionCachesForProject(pid)
+  persistedHotKeywords.value = []
+  aiHotKeywords.value = []
+  hotKwCachedTranscriptSig.value = ''
+  hotKwRequestId++
+  resetTranscription()
+  resetRecorder()
+  if (summaryPanelRef.value) {
+    summaryPanelRef.value.resetLiveSummaryMemory()
+  } else {
+    void nextTick(() => summaryPanelRef.value?.resetLiveSummaryMemory?.())
+  }
+  void nextTick(() => {
+    persistedHotKeywords.value = []
+    aiHotKeywords.value = []
+    hotKwCachedTranscriptSig.value = ''
+    summaryPanelRef.value?.resetLiveSummaryMemory?.()
+    const next = buildInterviewQueryWithoutFresh()
+    if (next) void router.replace({ name: 'Interview', query: next })
+  })
+}
+
+/**
+ * 访谈仅绑定「项目」节点；公司客户或集团父节点不可进入（与侧栏「开始访谈」一致）。
+ * 刷新时 liveCustomerTreeItems 会被重新初始化为 mock 数据，动态新增的项目丢失，
+ * 因此首次 immediate 执行以及有 session/localStorage 数据的场景不做跳转。
+ */
+let nodeIdRouteGuardReady = false
+watch(
+  () => nodeId.value?.trim(),
+  (id, prevId) => {
+    if (prevId && id && prevId !== id) lastCompletedSessionRecordId.value = null
+  }
+)
 watch(
   () => nodeId.value,
   id => {
     if (!id) return
+    if (!nodeIdRouteGuardReady) {
+      nodeIdRouteGuardReady = true
+      return
+    }
     const list = liveCustomerTreeItems.value
     if (isProjectRouteTarget(list, id)) return
+    const hasSessionData =
+      readInterviewTranscriptSegmentsFromSession(id) !== null ||
+      readInterviewRecorderState(id) !== null ||
+      getProjectInterviewRecords(id).length > 0
+    if (hasSessionData) return
     router.replace({ name: 'Home' })
   },
   { immediate: true }
@@ -504,6 +691,7 @@ const historyView = ref<{
   segments: InterviewTranscriptSegment[]
   durationMs: number
   title: string
+  status?: string
   summaryBlocks?: InterviewSummaryBlock[]
 } | null>(null)
 
@@ -517,84 +705,320 @@ const summaryPanelRef = ref<{
 /** 当前这次从「开始录音」创建的列表项 id，结束录音时更新同一条，避免重复条目 */
 const currentSessionRecordId = ref<string | null>(null)
 
+/**
+ * 落库完成后 currentSessionRecordId 会被清空，但热词 session 仍按 recordId 分键；
+ * 用该字段保留「刚结束的这一条」的 id，供 hotKeywordsScopeRecordId 回退，避免结束瞬间热词被清空。
+ */
+const lastCompletedSessionRecordId = ref<string | null>(null)
+
+function markInterviewRecordPersistCompleted(completedRecordId: string) {
+  const id = completedRecordId.trim()
+  if (id) lastCompletedSessionRecordId.value = id
+  currentSessionRecordId.value = null
+}
+
+/** 本次录音会话是否已落库完成；防止连点「确认结束」或重复调用 persist 时第二条走 append 分支产生重复记录 */
+const interviewPersistCompleted = ref(false)
+
+/** 结束录音确认流程进行中，防止确认按钮连点触发竞态 */
+const stopConfirmInProgress = ref(false)
+
+/** 刷新后从 sessionStorage 恢复的录音时长（毫秒），用于 UI 展示；续录时新时长在此基础上累加 */
+const restoredSessionDurationMs = ref(0)
+/** 刷新后检测到上次处于录音/暂停状态（MediaRecorder 已不可恢复，仅影响 UI 展示逻辑） */
+const restoredFromSession = ref(false)
+/** 刷新前的精确录音状态（recording / paused / stopped），用于区分恢复后的 UI 样式 */
+const restoredLastStatus = ref<'recording' | 'paused' | 'stopped' | 'idle'>('paused')
+
 const isViewingHistory = computed(() => historyView.value !== null)
 
 /**
- * 录音胶囊显示规则：
- * - 当前会话已结束（stopped）且非历史：整块隐藏（含波形+文案）
- * - 历史回看：仅 idle 时显示「开始录音」入口，不再显示历史波形条
+ * 对子组件（InterviewSummaryPanel 等）传递的等效录音状态：
+ * 刷新恢复且胶囊为「可继续」态时与 capsuleDisplayStatus 一致传 paused，否则实时总结的防抖永远不触发。
+ * 仅真正结束态传 stopped。
  */
+const effectiveRecorderStatus = computed<typeof recorderStatus.value>(() => {
+  if (recorderStatus.value === 'idle' && restoredFromSession.value) {
+    return capsuleDisplayStatus.value
+  }
+  return recorderStatus.value
+})
+
+/**
+ * 胶囊 UI 的显示状态：
+ * - 刷新恢复 + 之前是 recording/paused → 显示 paused（用户可继续或结束）
+ * - 刷新恢复 + 之前是 stopped → 显示 stopped
+ * - 其余情况跟 recorderStatus 一致
+ */
+const capsuleDisplayStatus = computed<typeof recorderStatus.value>(() => {
+  if (recorderStatus.value === 'idle' && restoredFromSession.value) {
+    const last = restoredLastStatus.value
+    if (last === 'recording' || last === 'paused') return 'paused'
+    return 'stopped'
+  }
+  return recorderStatus.value
+})
+
 const showRecordingCapsule = computed(() => {
-  if (isViewingHistory.value) return recorderStatus.value === 'idle'
+  /** 历史回看：仅「录音中」条目需要胶囊（继续/结束）；已完成记录只读，不显示胶囊、不提供本页开录 */
+  if (isViewingHistory.value) {
+    return recorderStatus.value === 'idle' && historyView.value?.status === 'recording'
+  }
+  if (restoredFromSession.value) {
+    return capsuleDisplayStatus.value !== 'stopped'
+  }
   return recorderStatus.value !== 'stopped'
 })
 
-const effectiveSegments = computed(
-  () => historyView.value?.segments ?? subtitleSegments.value
-)
+/** 历史条有字幕时用历史；若 localStorage 里 segments 仍为空但内存/session 有稿，必须回退到现场，避免 [] 盖住字幕 */
+const effectiveSegments = computed(() => {
+  const hv = historyView.value
+  if (hv?.segments?.length) return hv.segments
+  return subtitleSegments.value
+})
 
-/** 关键热词：按项目 sessionStorage 缓存；仅在访谈记录列表删除时集中清理 */
-function loadHotKeywordsForProject(projectId: string): string[] {
-  if (!projectId || typeof sessionStorage === 'undefined') return []
+/**
+ * 热词仅归属当前这条访谈记录（sessionStorage 按 recordId 分键），
+ * 不写入 localStorage 访谈列表，也不与同项目其它记录共用缓存。
+ */
+const hotKeywordsScopeRecordId = computed(() => {
+  if (isViewingHistory.value) {
+    const q = route.query.recordId
+    const r = Array.isArray(q) ? q[0] ?? '' : typeof q === 'string' ? q : ''
+    return (r || '').trim()
+  }
+  const cur = (currentSessionRecordId.value ?? '').trim()
+  if (cur) return cur
+  return (lastCompletedSessionRecordId.value ?? '').trim()
+})
+
+/** 与当前热词对应的逐字稿指纹；一致时不重复请求 AI（重进访谈页亦然） */
+function hashHotKwTranscript(t: string): string {
+  if (!t.length) return '0:'
+  let h = 5381
+  for (let i = 0; i < t.length; i++) h = (h * 33) ^ t.charCodeAt(i)
+  return `${t.length}:${(h >>> 0).toString(36)}`
+}
+
+function parseHotKeywordsSessionRaw(raw: string): { words: string[]; transcriptSig: string } {
   try {
-    const raw = sessionStorage.getItem(`${INTERVIEW_SESSION_HOT_KEYWORDS_PREFIX}${projectId}`)
-    if (!raw) return []
-    const data = JSON.parse(raw) as { words?: string[] }
-    return Array.isArray(data.words) ? data.words.filter(w => typeof w === 'string' && w.trim()) : []
+    const data = JSON.parse(raw) as { words?: string[]; transcriptSig?: string }
+    const words = Array.isArray(data.words)
+      ? data.words.filter((w): w is string => typeof w === 'string' && Boolean(w.trim()))
+      : []
+    const transcriptSig = typeof data.transcriptSig === 'string' ? data.transcriptSig : ''
+    return { words, transcriptSig }
   } catch {
-    return []
+    return { words: [], transcriptSig: '' }
   }
 }
 
-function saveHotKeywordsForProject(projectId: string, words: string[]) {
-  if (!projectId || typeof sessionStorage === 'undefined' || !words.length) return
+function saveHotKeywordsForRecord(
+  projectId: string,
+  recordId: string,
+  words: string[],
+  transcriptSig?: string
+) {
+  if (!projectId || !recordId || typeof sessionStorage === 'undefined' || !words.length) return
+  const key = interviewHotKeywordsSessionKey(projectId, recordId)
+  if (!key) return
   try {
     sessionStorage.setItem(
-      `${INTERVIEW_SESSION_HOT_KEYWORDS_PREFIX}${projectId}`,
-      JSON.stringify({ words, updatedAt: Date.now() })
+      key,
+      JSON.stringify({
+        words,
+        updatedAt: Date.now(),
+        ...(transcriptSig ? { transcriptSig } : {})
+      })
     )
   } catch {
     /* ignore quota */
   }
 }
 
-const persistedHotKeywords = ref<string[]>([])
+/** 按 projectId + recordId；兼容旧版仅 projectId 的键并迁移到当前记录 */
+function loadHotKeywordsForRecord(projectId: string, recordId: string): { words: string[]; transcriptSig: string } {
+  if (!projectId || !recordId || typeof sessionStorage === 'undefined') return { words: [], transcriptSig: '' }
+  try {
+    const key = interviewHotKeywordsSessionKey(projectId, recordId)
+    if (key) {
+      const raw = sessionStorage.getItem(key)
+      if (raw) return parseHotKeywordsSessionRaw(raw)
+    }
+    const legacyKey = `${INTERVIEW_SESSION_HOT_KEYWORDS_PREFIX}${projectId}`
+    const legacyRaw = sessionStorage.getItem(legacyKey)
+    if (legacyRaw) {
+      const parsed = parseHotKeywordsSessionRaw(legacyRaw)
+      if (parsed.words.length) {
+        saveHotKeywordsForRecord(projectId, recordId, parsed.words, parsed.transcriptSig || undefined)
+        sessionStorage.removeItem(legacyKey)
+      }
+      return parsed
+    }
+  } catch {
+    /* ignore */
+  }
+  return { words: [], transcriptSig: '' }
+}
 
-watch(
-  () => nodeId.value,
-  id => {
-    const pid = (typeof id === 'string' ? id : '').trim()
-    persistedHotKeywords.value = pid ? loadHotKeywordsForProject(pid) : []
-  },
-  { immediate: true }
-)
+const persistedHotKeywords = ref<string[]>([])
+/** 配置 DeepSeek 时由 AI 提炼；与 session 恢复时从 persisted 同步 */
+const aiHotKeywords = ref<string[]>([])
+const hotKeywordsAiLoading = ref(false)
+/** 与 persisted 热词对应的逐字稿指纹，用于重进页面跳过重复 AI */
+const hotKwCachedTranscriptSig = ref('')
+
+let hotKwRequestId = 0
+
+function syncHotKeywordsPersistedFromSession() {
+  const pid = nodeId.value?.trim()
+  const rid = hotKeywordsScopeRecordId.value
+  if (!pid || !rid) {
+    persistedHotKeywords.value = []
+    aiHotKeywords.value = []
+    hotKwCachedTranscriptSig.value = ''
+    hotKwRequestId++
+    return
+  }
+  const { words, transcriptSig } = loadHotKeywordsForRecord(pid, rid)
+  persistedHotKeywords.value = words
+  aiHotKeywords.value = [...words]
+  hotKwCachedTranscriptSig.value = transcriptSig
+  hotKwRequestId++
+}
+let hotKwDebounceTimer: ReturnType<typeof setTimeout> | null = null
+let historyHotKwImmediateTimer: ReturnType<typeof setTimeout> | null = null
+const HOT_KW_AI_DEBOUNCE_MS = 10_000
+/** 与 MIN_TRANSCRIPT_CHARS_FOR_AI_HOT_KEYWORDS 一致，满足后由 DeepSeek 提炼 */
+const MIN_HOT_KW_AI_CHARS = MIN_TRANSCRIPT_CHARS_FOR_AI_HOT_KEYWORDS
+const MIN_HOT_KW_AI_CHARS_HISTORY = MIN_TRANSCRIPT_CHARS_FOR_AI_HOT_KEYWORDS
+
+function buildHotKeywordsTranscript(): string {
+  const lines = effectiveSegments.value.map(s => `${s.speakerLabel}：${s.text}`)
+  const interim = subtitleInterimText.value?.trim()
+  if (
+    interim &&
+    (recorderStatus.value === 'recording' || recorderStatus.value === 'paused') &&
+    !isViewingHistory.value
+  ) {
+    lines.push(`${liveSpeakerLabel.value}（正在识别）：${interim}`)
+  }
+  return lines.join('\n').trim()
+}
+
+function scheduleHotKeywordsAiFetch() {
+  if (!import.meta.env.VITE_DEEPSEEK_API_KEY) return
+  if (hotKwDebounceTimer) clearTimeout(hotKwDebounceTimer)
+  hotKwDebounceTimer = setTimeout(() => {
+    hotKwDebounceTimer = null
+    void runHotKeywordsAiFetch()
+  }, HOT_KW_AI_DEBOUNCE_MS)
+}
+
+async function runHotKeywordsAiFetch() {
+  if (!import.meta.env.VITE_DEEPSEEK_API_KEY) return
+  const transcript = buildHotKeywordsTranscript()
+  const sig = hashHotKwTranscript(transcript)
+  if (
+    aiHotKeywords.value.length > 0 &&
+    hotKwCachedTranscriptSig.value !== '' &&
+    sig === hotKwCachedTranscriptSig.value
+  ) {
+    return
+  }
+  const minChars = isViewingHistory.value ? MIN_HOT_KW_AI_CHARS_HISTORY : MIN_HOT_KW_AI_CHARS
+  if (transcript.length < minChars) return
+  const reqId = ++hotKwRequestId
+  hotKeywordsAiLoading.value = true
+  try {
+    const words = await fetchInterviewHotKeywordsFromTranscript(transcript)
+    if (reqId !== hotKwRequestId) return
+    aiHotKeywords.value = words
+    const pid = nodeId.value?.trim()
+    const rid = hotKeywordsScopeRecordId.value
+    if (pid && rid && words.length) {
+      persistedHotKeywords.value = words
+      hotKwCachedTranscriptSig.value = sig
+      saveHotKeywordsForRecord(pid, rid, words, sig)
+    }
+  } finally {
+    if (reqId === hotKwRequestId) hotKeywordsAiLoading.value = false
+  }
+}
 
 const hotKeywords = computed(() => {
   const allText =
     effectiveSegments.value.map(s => s.text).join('') + (subtitleInterimText.value ?? '')
-  const live = extractKeywords(allText)
-  if (live.length) return live
+  const fallback = extractKeywords(allText)
+  if (!import.meta.env.VITE_DEEPSEEK_API_KEY) {
+    if (fallback.length) return fallback
+    return persistedHotKeywords.value
+  }
+  /** 已配置 Key 时只展示 AI 结果（含 session 恢复的 persisted），避免本地 n-gram 与模型抢显 */
+  if (aiHotKeywords.value.length) return aiHotKeywords.value
   return persistedHotKeywords.value
 })
 
 watch(
+  () => [nodeId.value, hotKeywordsScopeRecordId.value] as const,
+  () => {
+    syncHotKeywordsPersistedFromSession()
+  },
+  { immediate: true }
+)
+
+watch(
+  () =>
+    [
+      nodeId.value,
+      effectiveSegments.value,
+      subtitleInterimText.value,
+      recorderStatus.value,
+      isViewingHistory.value
+    ] as const,
+  () => {
+    scheduleHotKeywordsAiFetch()
+  },
+  { deep: true }
+)
+
+/** 历史回看/有现成字幕时尽快拉取热词，不再等 12s 防抖；短防抖合并分段写入，避免连打 API */
+watch(
+  () => [isViewingHistory.value, effectiveSegments.value.length] as const,
+  ([vh, segLen]) => {
+    if (!import.meta.env.VITE_DEEPSEEK_API_KEY) return
+    if (!vh || segLen < 1) return
+    if (historyHotKwImmediateTimer) clearTimeout(historyHotKwImmediateTimer)
+    historyHotKwImmediateTimer = setTimeout(() => {
+      historyHotKwImmediateTimer = null
+      void runHotKeywordsAiFetch()
+    }, 400)
+  }
+)
+
+watch(
   () => [nodeId.value, effectiveSegments.value, subtitleInterimText.value] as const,
   () => {
+    if (import.meta.env.VITE_DEEPSEEK_API_KEY) return
     const pid = nodeId.value?.trim()
     if (!pid) return
     const allText =
       effectiveSegments.value.map(s => s.text).join('') + (subtitleInterimText.value ?? '')
     const words = extractKeywords(allText)
-    if (words.length) {
+    const rid = hotKeywordsScopeRecordId.value
+    if (words.length && rid) {
+      const transcript = buildHotKeywordsTranscript()
+      const sig = hashHotKwTranscript(transcript)
       persistedHotKeywords.value = words
-      saveHotKeywordsForProject(pid, words)
+      hotKwCachedTranscriptSig.value = sig
+      saveHotKeywordsForRecord(pid, rid, words, sig)
     }
   },
   { deep: true }
 )
 
 const effectiveDurationMs = computed(
-  () => historyView.value?.durationMs ?? durationMs.value
+  () => historyView.value?.durationMs ?? (durationMs.value + restoredSessionDurationMs.value)
 )
 
 const storedSummaryBlocksForHistory = computed(() =>
@@ -618,12 +1042,31 @@ function syncHistoryFromRoute() {
     return
   }
   summaryPanelRef.value?.saveLiveCacheToSession?.()
+  const pid = nid.trim()
+  let segments: InterviewTranscriptSegment[] =
+    Array.isArray(rec.segments) && rec.segments.length
+      ? (JSON.parse(JSON.stringify(rec.segments)) as InterviewTranscriptSegment[])
+      : []
+  if (!segments.length) {
+    const fromSession = readInterviewTranscriptSegmentsFromSession(pid)
+    if (fromSession?.length) {
+      segments = JSON.parse(JSON.stringify(fromSession)) as InterviewTranscriptSegment[]
+    }
+  }
+  if (!segments.length && subtitleSegments.value.length) {
+    segments = JSON.parse(JSON.stringify(subtitleSegments.value)) as InterviewTranscriptSegment[]
+  }
   historyView.value = {
-    segments: rec.segments,
+    segments,
     durationMs: rec.durationMs,
     title: rec.title,
+    status: rec.status,
     summaryBlocks: rec.summaryBlocks
   }
+  /** 避免与「仅现场 session 恢复」冲突，防止胶囊错显为暂停恢复态 */
+  restoredFromSession.value = false
+  restoredSessionDurationMs.value = 0
+  restoredLastStatus.value = 'paused'
   resetTranscription()
   resetRecorder()
 }
@@ -670,64 +1113,238 @@ watch(
 )
 
 function onInterviewSessionCacheCleared(ev: Event) {
-  const d = (ev as CustomEvent<{ projectId?: string }>).detail
+  const d = (ev as CustomEvent<{ projectId?: string; recordId?: string }>).detail
   if (!d?.projectId || d.projectId !== nodeId.value?.trim()) return
+  lastCompletedSessionRecordId.value = null
+  if (d.recordId && d.recordId === currentSessionRecordId.value) {
+    stopTranscription()
+    void stopRecorder()
+    currentSessionRecordId.value = null
+    interviewPersistCompleted.value = false
+  }
+  restoredSessionDurationMs.value = 0
+  restoredFromSession.value = false
   persistedHotKeywords.value = []
+  aiHotKeywords.value = []
+  hotKwCachedTranscriptSig.value = ''
   resetTranscription()
   summaryPanelRef.value?.resetLiveSummaryMemory?.()
 }
+
+let sessionSnapshotTimer: ReturnType<typeof setTimeout> | null = null
+const SESSION_SNAPSHOT_DEBOUNCE_MS = 400
+
+/** 字幕 / 总结 / 热词 / 录音状态一并写入 sessionStorage，供刷新与关页恢复 */
+function persistSessionSnapshot() {
+  const pid = nodeId.value?.trim()
+  if (!pid || typeof sessionStorage === 'undefined') return
+  try {
+    const segs = subtitleSegments.value
+    if (segs.length) persistInterviewTranscriptSegments(pid, segs)
+    summaryPanelRef.value?.saveLiveCacheToSession?.()
+    const rid = hotKeywordsScopeRecordId.value?.trim()
+    if (persistedHotKeywords.value.length && rid) {
+      saveHotKeywordsForRecord(
+        pid,
+        rid,
+        persistedHotKeywords.value,
+        hotKwCachedTranscriptSig.value || undefined
+      )
+    }
+    const dur = effectiveDurationMs.value
+    const status = recorderStatus.value
+    const isActive = status === 'recording' || status === 'paused'
+    const lastStatus = restoredFromSession.value && status === 'idle'
+      ? (restoredLastStatus.value || 'paused')
+      : status
+    if (dur > 0 || isActive || status === 'stopped' || restoredFromSession.value) {
+      persistInterviewRecorderState(pid, {
+        durationMs: dur,
+        wasRecording: isActive,
+        lastStatus: lastStatus as 'recording' | 'paused' | 'stopped' | 'idle'
+      })
+    }
+    syncActiveRecordingToLocalStorage(pid, segs, dur)
+  } catch {
+    /* 防止任何异常导致刷新前落盘中断 */
+  }
+}
+
+/** 将录音中的字幕/时长/总结同步到 localStorage 记录，确保双击查看时数据完整 */
+function syncActiveRecordingToLocalStorage(
+  pid: string,
+  segs: InterviewTranscriptSegment[],
+  dur: number
+) {
+  const rid = currentSessionRecordId.value
+  if (!rid || !segs.length) return
+  const status = recorderStatus.value
+  if (status !== 'recording' && status !== 'paused' && !restoredFromSession.value) return
+  const segments = JSON.parse(JSON.stringify(segs)) as InterviewTranscriptSegment[]
+  const patch: Record<string, unknown> = { durationMs: dur, segments }
+  const summaryBlocks = summaryPanelRef.value?.getSummaryBlocks?.() ?? []
+  if (summaryBlocks.length) {
+    patch.summaryBlocks = summaryBlocks
+    patch.summarizerName = appStore.currentUser.name
+    patch.summaryGeneratedAt = Date.now()
+  }
+  updateProjectInterviewRecord(pid, rid, patch)
+}
+
+function schedulePersistSessionSnapshot() {
+  if (sessionSnapshotTimer) clearTimeout(sessionSnapshotTimer)
+  sessionSnapshotTimer = setTimeout(() => {
+    sessionSnapshotTimer = null
+    persistSessionSnapshot()
+  }, SESSION_SNAPSHOT_DEBOUNCE_MS)
+}
+
+/** 刷新/关标签前同步落盘（先于 Vue 卸载与转写 composable 清理） */
+function onPageHideOrFreeze() {
+  if (sessionSnapshotTimer) {
+    clearTimeout(sessionSnapshotTimer)
+    sessionSnapshotTimer = null
+  }
+  persistSessionSnapshot()
+}
+
+function onVisibilityChange() {
+  if (document.visibilityState === 'hidden') onPageHideOrFreeze()
+}
+
+/** 刷新后内存中的 currentSessionRecordId 丢失，从 localStorage 录音中条目恢复，便于继续写入同一条 */
+function tryRestoreSessionRecordId() {
+  const pid = nodeId.value?.trim()
+  if (!pid || currentSessionRecordId.value) return
+  const open = getProjectInterviewRecords(pid).find(r => r.status === 'recording')
+  if (open) currentSessionRecordId.value = open.id
+}
+
+watch(
+  () => subtitleSegments.value,
+  () => {
+    if (isViewingHistory.value) return
+    const pid = nodeId.value?.trim()
+    if (!pid || !subtitleSegments.value.length) return
+    schedulePersistSessionSnapshot()
+  },
+  { deep: true }
+)
+
+watch(
+  () => recorderStatus.value,
+  s => {
+    if (isViewingHistory.value) return
+    if (s === 'recording' || s === 'paused' || s === 'stopped') {
+      persistSessionSnapshot()
+    }
+  }
+)
+
+onBeforeMount(() => {
+  window.addEventListener('pagehide', onPageHideOrFreeze)
+  window.addEventListener('beforeunload', onPageHideOrFreeze)
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  applyFreshInterviewSessionFromSidebar()
+})
+
+watch(
+  () => [route.query.nodeId, route.query.fresh, route.query.recordId, route.query.fromRecords] as const,
+  () => {
+    applyFreshInterviewSessionFromSidebar()
+  }
+)
 
 onMounted(() => {
   window.addEventListener('pd-interview-session-cache-cleared', onInterviewSessionCacheCleared as EventListener)
   const id = nodeId.value
   if (id) appStore.setSelectedCustomer(id)
+  /** 刷新后 Pinia 从 localStorage 恢复选中项，但地址栏可能无 nodeId；补全 query，避免下次刷新丢项目上下文 */
   void nextTick(() => {
+    const nid = nodeId.value?.trim()
+    if (!nid) return
+    const q = route.query.nodeId
+    const cur = Array.isArray(q) ? q[0] ?? '' : typeof q === 'string' ? q : ''
+    if (!cur.trim()) {
+      const next: Record<string, string> = { nodeId: nid }
+      const rid = route.query.recordId
+      if (rid) {
+        const r = Array.isArray(rid) ? rid[0] : typeof rid === 'string' ? rid : ''
+        if (r) next.recordId = r
+      }
+      const fr = route.query.fromRecords
+      if (fr) {
+        const f = Array.isArray(fr) ? fr[0] : typeof fr === 'string' ? fr : ''
+        if (f) next.fromRecords = f
+      }
+      void router.replace({ name: 'Interview', query: next })
+    }
+  })
+  void nextTick(() => {
+    const rq = route.query.recordId
+    const routeRid = (Array.isArray(rq) ? rq[0] ?? '' : typeof rq === 'string' ? rq : '').trim()
+    /** 地址栏要带某条记录时勿先恢复现场 session，否则与 historyView 竞态导致胶囊状态错乱 */
+    if (routeRid) return
     if (isViewingHistory.value) return
     const pid = nodeId.value?.trim()
-    if (!pid || typeof sessionStorage === 'undefined') return
+    if (!pid) return
     if (subtitleSegments.value.length) return
-    try {
-      const raw = sessionStorage.getItem(`${INTERVIEW_SESSION_TRANSCRIPT_PREFIX}${pid}`)
-      if (!raw) return
-      const data = JSON.parse(raw) as { segments?: InterviewTranscriptSegment[] }
-      if (data.segments?.length) restoreTranscriptionSegments(data.segments)
-    } catch {
-      /* ignore */
+    const fromSession = readInterviewTranscriptSegmentsFromSession(pid)
+    if (fromSession?.length) {
+      restoreTranscriptionSegments(fromSession)
+      const saved = readInterviewRecorderState(pid)
+      if (saved) {
+        restoredSessionDurationMs.value = saved.durationMs
+        restoredLastStatus.value = saved.lastStatus ?? (saved.wasRecording ? 'paused' : 'stopped')
+        restoredFromSession.value = true
+      }
     }
+    tryRestoreSessionRecordId()
   })
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('pd-interview-session-cache-cleared', onInterviewSessionCacheCleared as EventListener)
-  const pid = nodeId.value?.trim()
-  if (!pid || typeof sessionStorage === 'undefined') return
-  const segs = subtitleSegments.value
-  if (!segs.length) return
-  try {
-    sessionStorage.setItem(
-      `${INTERVIEW_SESSION_TRANSCRIPT_PREFIX}${pid}`,
-      JSON.stringify({ segments: segs, savedAt: Date.now() })
-    )
-  } catch {
-    /* ignore quota */
+  window.removeEventListener('pagehide', onPageHideOrFreeze)
+  window.removeEventListener('beforeunload', onPageHideOrFreeze)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  if (sessionSnapshotTimer) {
+    clearTimeout(sessionSnapshotTimer)
+    sessionSnapshotTimer = null
   }
+  if (hotKwDebounceTimer) {
+    clearTimeout(hotKwDebounceTimer)
+    hotKwDebounceTimer = null
+  }
+  if (historyHotKwImmediateTimer) {
+    clearTimeout(historyHotKwImmediateTimer)
+    historyHotKwImmediateTimer = null
+  }
+  hotKwRequestId++
+  onPageHideOrFreeze()
 })
 
 onActivated(() => {
-  const pid = nodeId.value?.trim()
-  if (pid) persistedHotKeywords.value = loadHotKeywordsForProject(pid)
+  syncHotKeywordsPersistedFromSession()
   void nextTick(() => {
+    const pid = nodeId.value?.trim()
+    const rq = route.query.recordId
+    const routeRid = (Array.isArray(rq) ? rq[0] ?? '' : typeof rq === 'string' ? rq : '').trim()
+    if (routeRid) return
     if (isViewingHistory.value) return
-    if (!pid || typeof sessionStorage === 'undefined') return
+    if (!pid) return
     if (subtitleSegments.value.length) return
-    try {
-      const raw = sessionStorage.getItem(`${INTERVIEW_SESSION_TRANSCRIPT_PREFIX}${pid}`)
-      if (!raw) return
-      const data = JSON.parse(raw) as { segments?: InterviewTranscriptSegment[] }
-      if (data.segments?.length) restoreTranscriptionSegments(data.segments)
-    } catch {
-      /* ignore */
+    const fromSession = readInterviewTranscriptSegmentsFromSession(pid)
+    if (fromSession?.length) {
+      restoreTranscriptionSegments(fromSession)
+      const saved = readInterviewRecorderState(pid)
+      if (saved) {
+        restoredSessionDurationMs.value = saved.durationMs
+        restoredLastStatus.value = saved.lastStatus ?? (saved.wasRecording ? 'paused' : 'stopped')
+        restoredFromSession.value = true
+      }
     }
+    tryRestoreSessionRecordId()
   })
 })
 
@@ -742,7 +1359,8 @@ const formattedDuration = computed(() => {
 
 const recordingBarText = computed(() => {
   const t = formattedDuration.value
-  switch (recorderStatus.value) {
+  const s = capsuleDisplayStatus.value
+  switch (s) {
     case 'recording':
       return `速写中... ${t}`
     case 'paused':
@@ -752,6 +1370,29 @@ const recordingBarText = computed(() => {
     default:
       return ''
   }
+})
+
+const historyBarText = computed(() => {
+  const t = formattedDuration.value
+  const s = historyView.value?.status
+  if (s === 'completed') return `录音已结束 ${t}`
+  return t ? `录音时长 ${t}` : ''
+})
+
+/** 历史「录音中」胶囊：与现场暂停条一致用 session 的 lastStatus 区分波形；无缓存时默认已暂停 */
+const historyRecordingCapsulePausedStyle = computed(() => {
+  if (!isViewingHistory.value || historyView.value?.status !== 'recording') return true
+  const pid = nodeId.value?.trim()
+  if (!pid) return true
+  const last = readInterviewRecorderState(pid)?.lastStatus
+  if (last === 'recording') return false
+  return true
+})
+
+const historyRecordingCapsuleText = computed(() => {
+  const t = formattedDuration.value
+  if (historyRecordingCapsulePausedStyle.value) return `已暂停... ${t}`
+  return `速写中... ${t}`
 })
 
 function onPauseOrResumeClick() {
@@ -768,10 +1409,11 @@ const subtitleEmptyText = computed(() => {
   if (isViewingHistory.value && !effectiveSegments.value.length) {
     return '该条记录暂无转写文本。'
   }
+  const s = capsuleDisplayStatus.value
   if (subtitleRecognitionError.value) return '实时字幕暂不可用，但录音仍可继续。'
-  if (recorderStatus.value === 'recording') return '正在聆听，请开始发言，字幕会实时展示在这里。'
-  if (recorderStatus.value === 'paused') return '录音已暂停，继续后会从这里接着转写。'
-  if (recorderStatus.value === 'stopped') return '本次录音已结束，字幕内容会保留在这里供回看。'
+  if (s === 'recording') return '正在聆听，请开始发言，字幕会实时展示在这里。'
+  if (s === 'paused') return '录音已暂停，继续后会从这里接着转写。'
+  if (s === 'stopped') return '本次录音已结束，字幕内容会保留在这里供回看。'
   return '开始录音后，字幕与转写将在此区域实时展示。'
 })
 
@@ -794,6 +1436,10 @@ async function leaveHistoryView() {
 async function startRecording() {
   await leaveHistoryView()
   currentSessionRecordId.value = null
+  lastCompletedSessionRecordId.value = null
+  interviewPersistCompleted.value = false
+  restoredSessionDurationMs.value = 0
+  restoredFromSession.value = false
   /** 不再在此处清理 session 缓存：结束录音后胶囊隐藏，缓存保留至访谈记录列表中删除 */
   /** 与录音同一次会话：先清空旧字幕/识别实例，再开麦，最后启动 Web Speech（避免与上一轮字幕、segmentId 混在一起） */
   resetTranscription()
@@ -803,6 +1449,15 @@ async function startRecording() {
     const pid = nodeId.value
     const list = liveCustomerTreeItems.value
     if (pid && isProjectRouteTarget(list, pid)) {
+      /** 再次「开始录音」时若未先结束，会重复 append；先删掉本项目中仍为「录音中」的占位行，保证列表只有一条进行中记录 */
+      const staleRecording = getProjectInterviewRecords(pid).filter(r => r.status === 'recording')
+      for (const r of staleRecording) {
+        deleteProjectInterviewRecord(pid, r.id)
+      }
+      if (staleRecording.length) {
+        clearInterviewSessionCachesForProject(pid)
+        window.dispatchEvent(new CustomEvent('pd-interview-record-saved', { detail: { projectId: pid } }))
+      }
       const title = nextInterviewTitle(pid)
       const rec = appendProjectInterviewRecord(pid, {
         projectId: pid,
@@ -829,6 +1484,61 @@ function pauseRecording() {
 function resumeRecording() {
   resumeRecorder()
   if (recorderStatus.value === 'recording') resumeTranscription()
+}
+
+/** 刷新恢复后继续录音：新建 MediaRecorder / SpeechRecognition，在已有字幕和时长上续接 */
+async function resumeFromRestore() {
+  restoredFromSession.value = false
+  await startRecorder()
+  if (recorderStatus.value === 'recording') {
+    startTranscription()
+    tryRestoreSessionRecordId()
+  }
+}
+
+/** 从访谈记录进入的「录音中」条：继续录音 — 退出历史态并续录同一条 */
+async function continueFromHistoryRecording() {
+  const hv = historyView.value
+  const pid = nodeId.value?.trim()
+  const q = route.query.recordId
+  const rid = (Array.isArray(q) ? q[0] ?? '' : typeof q === 'string' ? q : '').trim()
+  if (!hv || !pid || !rid) return
+  const segs = JSON.parse(JSON.stringify(hv.segments)) as InterviewTranscriptSegment[]
+  const dur = hv.durationMs ?? 0
+  historyView.value = null
+  await router.replace({ name: 'Interview', query: { nodeId: pid } })
+  await nextTick()
+  restoreTranscriptionSegments(segs)
+  restoredSessionDurationMs.value = dur
+  currentSessionRecordId.value = rid
+  await resumeFromRestore()
+}
+
+/** 在历史「录音中」条上结束：落库为已完成并回到现场访谈（无 recordId） */
+async function completeHistoryRecordingFromCapsule() {
+  const hv = historyView.value
+  const pid = nodeId.value?.trim()
+  const q = route.query.recordId
+  const rid = (Array.isArray(q) ? q[0] ?? '' : typeof q === 'string' ? q : '').trim()
+  if (!hv || !pid || !rid || hv.status !== 'recording') return
+  const segments = JSON.parse(JSON.stringify(hv.segments)) as InterviewTranscriptSegment[]
+  const summaryBlocks = summaryPanelRef.value?.getSummaryBlocks?.() ?? hv.summaryBlocks ?? []
+  const patch: Record<string, unknown> = {
+    status: 'completed',
+    durationMs: hv.durationMs ?? 0,
+    segments,
+    summarizerName: appStore.currentUser.name,
+    summaryGeneratedAt: Date.now()
+  }
+  if (summaryBlocks.length) patch.summaryBlocks = summaryBlocks
+  updateProjectInterviewRecord(pid, rid, patch)
+  window.dispatchEvent(new CustomEvent('pd-interview-record-saved', { detail: { projectId: pid } }))
+  historyView.value = null
+  interviewPersistCompleted.value = true
+  await router.replace({ name: 'Interview', query: { nodeId: pid } })
+  await nextTick()
+  restoreTranscriptionSegments(segments)
+  markInterviewRecordPersistCompleted(rid)
 }
 
 let summaryPersistDebounce: ReturnType<typeof setTimeout> | null = null
@@ -887,6 +1597,7 @@ function goBack() {
 }
 
 function persistProjectInterviewIfNeeded() {
+  if (interviewPersistCompleted.value) return
   const pid = nodeId.value
   if (!pid) return
   const tree = liveCustomerTreeItems.value
@@ -903,6 +1614,11 @@ function persistProjectInterviewIfNeeded() {
     ...(summaryBlocks.length ? { summaryBlocks } : {})
   }
 
+  const finishPersist = () => {
+    interviewPersistCompleted.value = true
+    window.dispatchEvent(new CustomEvent('pd-interview-record-saved', { detail: { projectId: pid } }))
+  }
+
   if (rid) {
     updateProjectInterviewRecord(pid, rid, {
       durationMs: dur,
@@ -910,14 +1626,28 @@ function persistProjectInterviewIfNeeded() {
       status: 'completed',
       ...summaryPatch
     })
-    currentSessionRecordId.value = null
-    window.dispatchEvent(new CustomEvent('pd-interview-record-saved', { detail: { projectId: pid } }))
+    markInterviewRecordPersistCompleted(rid)
+    finishPersist()
+    return
+  }
+
+  /** 内存中丢了 sessionId 但 localStorage 仍有「录音中」条目时，合并到该条，避免再 append 一条 */
+  const openRecording = getProjectInterviewRecords(pid).find(r => r.status === 'recording')
+  if (openRecording) {
+    updateProjectInterviewRecord(pid, openRecording.id, {
+      durationMs: dur,
+      segments,
+      status: 'completed',
+      ...summaryPatch
+    })
+    markInterviewRecordPersistCompleted(openRecording.id)
+    finishPersist()
     return
   }
 
   const hasText = segs.some(s => s.text.trim().length > 0)
   if (dur < 1000 && !hasText) return
-  appendProjectInterviewRecord(pid, {
+  const appended = appendProjectInterviewRecord(pid, {
     projectId: pid,
     title: nextInterviewTitle(pid),
     createdAt: Date.now(),
@@ -928,7 +1658,71 @@ function persistProjectInterviewIfNeeded() {
     participants: '',
     ...summaryPatch
   })
-  window.dispatchEvent(new CustomEvent('pd-interview-record-saved', { detail: { projectId: pid } }))
+  lastCompletedSessionRecordId.value = appended.id
+  finishPersist()
+}
+
+/** 刷新恢复的会话点「结束」：用 effectiveDurationMs（含恢复时长）落库 */
+function persistRestoredInterviewIfNeeded() {
+  if (interviewPersistCompleted.value) return
+  const pid = nodeId.value
+  if (!pid) return
+  const dur = effectiveDurationMs.value
+  const segs = subtitleSegments.value
+  const segments = JSON.parse(JSON.stringify(segs)) as InterviewTranscriptSegment[]
+  const rid = currentSessionRecordId.value
+  const summaryBlocks = summaryPanelRef.value?.getSummaryBlocks?.() ?? []
+  const summaryPatch = {
+    summarizerName: appStore.currentUser.name,
+    summaryGeneratedAt: Date.now(),
+    ...(summaryBlocks.length ? { summaryBlocks } : {})
+  }
+
+  const finishPersist = () => {
+    interviewPersistCompleted.value = true
+    window.dispatchEvent(new CustomEvent('pd-interview-record-saved', { detail: { projectId: pid } }))
+  }
+
+  if (rid) {
+    updateProjectInterviewRecord(pid, rid, {
+      durationMs: dur,
+      segments,
+      status: 'completed',
+      ...summaryPatch
+    })
+    markInterviewRecordPersistCompleted(rid)
+    finishPersist()
+    return
+  }
+
+  const openRecording = getProjectInterviewRecords(pid).find(r => r.status === 'recording')
+  if (openRecording) {
+    updateProjectInterviewRecord(pid, openRecording.id, {
+      durationMs: dur,
+      segments,
+      status: 'completed',
+      ...summaryPatch
+    })
+    markInterviewRecordPersistCompleted(openRecording.id)
+    finishPersist()
+    return
+  }
+
+  const hasText = segs.some(s => s.text.trim().length > 0)
+  if (dur < 1000 && !hasText) return
+  const appendedRestored = appendProjectInterviewRecord(pid, {
+    projectId: pid,
+    title: nextInterviewTitle(pid),
+    createdAt: Date.now(),
+    durationMs: dur,
+    segments,
+    status: 'completed',
+    place: '',
+    participants: '',
+    ...summaryPatch
+  })
+  lastCompletedSessionRecordId.value = appendedRestored.id
+  finishPersist()
 }
 
 function onStopClick() {
@@ -936,13 +1730,30 @@ function onStopClick() {
 }
 
 async function confirmStop() {
-  showStopConfirm.value = false
-  stopTranscription()
-  await stopRecorder()
-  await nextTick()
-  await summaryPanelRef.value?.waitForSummaryIdle?.()
-  await nextTick()
-  persistProjectInterviewIfNeeded()
+  if (stopConfirmInProgress.value) return
+  stopConfirmInProgress.value = true
+  try {
+    showStopConfirm.value = false
+    if (isViewingHistory.value && historyView.value?.status === 'recording') {
+      await completeHistoryRecordingFromCapsule()
+      return
+    }
+    const wasRestoredSession = restoredFromSession.value
+    restoredFromSession.value = false
+    restoredSessionDurationMs.value = 0
+    stopTranscription()
+    await stopRecorder()
+    await nextTick()
+    await summaryPanelRef.value?.waitForSummaryIdle?.()
+    await nextTick()
+    if (wasRestoredSession) {
+      persistRestoredInterviewIfNeeded()
+    } else {
+      persistProjectInterviewIfNeeded()
+    }
+  } finally {
+    stopConfirmInProgress.value = false
+  }
 }
 
 function cancelStop() {
@@ -1075,6 +1886,12 @@ function cancelStop() {
 .recording-bar--paused .recording-text {
   flex: 0 1 auto;
   min-width: 100px;
+}
+
+.recording-bar--history {
+  min-width: 160px;
+  justify-content: center;
+  background: rgba(120, 120, 140, 0.08);
 }
 
 .recording-bar--stopped {
@@ -1556,6 +2373,13 @@ function cancelStop() {
   padding: 4px 0;
   font-size: 13px;
   color: #a6a6a6;
+}
+
+.keyword-ai-hint {
+  margin: 6px 0 0;
+  padding: 0;
+  font-size: 12px;
+  color: #8b8fa3;
 }
 
 .info-panel--suggest .suggest-list {

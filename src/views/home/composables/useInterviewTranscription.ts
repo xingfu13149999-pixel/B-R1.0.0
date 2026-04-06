@@ -418,8 +418,35 @@ export function useInterviewTranscription(options: UseInterviewTranscriptionOpti
     recognition = null
   }
 
+  /**
+   * 组件卸载时仅停止语音识别实例，不清空 segments。
+   * 刷新/关页时浏览器可能不执行父组件 onBeforeUnmount，若在 reset() 里先清空字幕，
+   * InterviewStart 的 pagehide 落盘会读到空数组导致「刷新后数据丢失」。
+   */
+  function abortRecognitionOnly() {
+    shouldListen = false
+    manualStop = true
+    clearRestartTimer()
+    clearPolishTimer()
+    polishQueue = []
+    polishRunning = false
+    polishSourceSnapshot = ''
+    interimText.value = ''
+    error.value = null
+    if (!recognition) return
+    recognition.onresult = null
+    recognition.onerror = null
+    recognition.onend = null
+    try {
+      recognition.abort()
+    } catch {
+      /* ignore */
+    }
+    recognition = null
+  }
+
   onUnmounted(() => {
-    reset()
+    abortRecognitionOnly()
   })
 
   const currentSpeakerLabel = computed(() => makeSpeakerLabel(currentSpeakerIndex))

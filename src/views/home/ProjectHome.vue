@@ -249,7 +249,7 @@ const projectHeaderMetrics = computed(() => {
 }
 
 .company-name {
-  margin: 0 0 8px;
+  margin: 6px 0 5px;
   font-size: 24px;
   font-weight: 700;
   color: #21243d;

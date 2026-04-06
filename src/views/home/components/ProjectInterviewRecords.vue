@@ -52,7 +52,7 @@
             placement="bottom-end"
             popper-class="figma-interview-more-popper"
             :disabled="resummarizingId === r.id"
-            @command="cmd => onCardCommand(cmd, r)"
+            @command="(cmd: string | number) => onCardCommand(cmd, r)"
           >
             <button
               type="button"
@@ -120,6 +120,7 @@ import iconMenuDelete from '@/assets/images/interview/ir-menu-delete.svg'
 import {
   deleteProjectInterviewRecord,
   getProjectInterviewRecords,
+  normalizeInterviewProjectId,
   updateProjectInterviewRecord,
   type ProjectInterviewRecord
 } from '@/views/home/utils/interviewRecordsStorage'
@@ -153,6 +154,8 @@ function load() {
 }
 
 function syncSelection() {
+  /** projectId 尚未从路由注入时勿清空选中项，否则刷新首帧 records=[] 会误把 URL/父级 recordId 清掉 */
+  if (!pid.value) return
   const list = records.value
   if (!list.length) {
     emit('update:selectedRecordId', null)
@@ -173,7 +176,8 @@ function openRecord(r: ProjectInterviewRecord) {
   if (!id) return
   router.push({
     name: 'Interview',
-    query: { nodeId: id, recordId: r.id }
+    /** 与 InterviewStart 约定：从列表进入需保留 session 缓存，且勿走侧栏 fresh 清缓存 */
+    query: { nodeId: id, recordId: r.id, fromRecords: '1' }
   })
 }
 
@@ -217,13 +221,11 @@ async function onResummarizeFromList(r: ProjectInterviewRecord) {
 }
 
 async function confirmDelete(r: ProjectInterviewRecord) {
-  if (isRecording(r)) {
-    ElMessage.warning('该条录音尚未结束，请先在访谈页结束录音后再删除')
-    return
-  }
   try {
     await ElMessageBox.confirm(
-      '确定删除该条访谈记录？删除后将清除该项目下本地缓存的实时总结、字幕与关键热词。',
+      isRecording(r)
+        ? '该条录音仍在进行中。确定删除？删除后将终止当前录音并清除该项目下本地缓存的实时总结、字幕与关键热词。'
+        : '确定删除该条访谈记录？删除后将清除该项目下本地缓存的实时总结、字幕与关键热词。',
       '删除访谈记录',
       {
         confirmButtonText: '删除',
@@ -235,8 +237,12 @@ async function confirmDelete(r: ProjectInterviewRecord) {
   } catch {
     return
   }
-  const projectId = pid.value
-  if (!projectId) return
+  /** 与落库时 projectId 一致，避免仅用路由 id 与 r.projectId 不一致时删不到 */
+  const projectId = normalizeInterviewProjectId(r.projectId) || pid.value
+  if (!projectId) {
+    ElMessage.error('删除失败')
+    return
+  }
   if (!deleteProjectInterviewRecord(projectId, r.id)) {
     ElMessage.error('删除失败')
     return
@@ -244,7 +250,7 @@ async function confirmDelete(r: ProjectInterviewRecord) {
   clearInterviewSessionCachesForProject(projectId)
   window.dispatchEvent(new CustomEvent('pd-interview-record-saved', { detail: { projectId } }))
   window.dispatchEvent(
-    new CustomEvent('pd-interview-session-cache-cleared', { detail: { projectId } })
+    new CustomEvent('pd-interview-session-cache-cleared', { detail: { projectId, recordId: r.id } })
   )
   ElMessage.success('已删除')
   load()

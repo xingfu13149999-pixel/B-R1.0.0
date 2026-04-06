@@ -243,12 +243,23 @@ function emitContextMenu(
   emit('open-context-menu', { event, item, type })
 }
 
+/** 与 InterviewStart 约定：仅侧栏点击进入时带此标记，整页刷新不会带，避免 F5 误清 session */
+const INTERVIEW_SIDEBAR_FRESH_INTENT_KEY = 'pd-interview-sidebar-fresh-intent'
+
 function goInterview() {
   if (!canStartInterview.value) return
   const nodeId = props.selectedId
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(INTERVIEW_SIDEBAR_FRESH_INTENT_KEY, '1')
+    }
+  } catch {
+    /* ignore */
+  }
   router.push({
     name: 'Interview',
-    query: nodeId ? { nodeId } : {}
+    /** 与 InterviewStart 约定：每次点击带不同 fresh 时间戳，同页复用组件时也能触发清 session */
+    query: nodeId ? { nodeId, fresh: String(Date.now()) } : {}
   })
 }
 </script>

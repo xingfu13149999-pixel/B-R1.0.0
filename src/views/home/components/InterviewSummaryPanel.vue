@@ -62,17 +62,27 @@ const props = withDefaults(
     showSyncFooter?: boolean
     /** 当前项目节点 id：用于 sessionStorage 备份，离开页面再进入仍显示同一份总结 */
     summaryCacheKey?: string
+    /**
+     * 访谈记录详情：录音中且尚无已落库/已缓存的总结块时，避免触发「历史」模式下的自动 AI 总结。
+     */
+    suppressHistorySummaryRequest?: boolean
   }>(),
   {
     interimText: '',
     liveSpeakerLabel: '发言人1',
     storedSummaryBlocks: null,
     showSyncFooter: true,
-    summaryCacheKey: ''
+    summaryCacheKey: '',
+    suppressHistorySummaryRequest: false
   }
 )
 
-const DEBOUNCE_MS = 15_000
+/** 已有过总结后，字幕变化再次请求的防抖（过短会频繁打 API） */
+const DEBOUNCE_MS = 8_000
+/** 首次等待总结：略短于后续间隔，尽快出第一段要点 */
+const FIRST_DEBOUNCE_MS = 5_000
+/** 未配置 AI 时，每位发言人摘录的要点条数上限 */
+const LOCAL_SUMMARY_BULLET_CAP = 12
 
 const summaryResult = ref<SummaryBlock[] | null>(null)
 const hasSummaryContentOnce = ref(false)
@@ -166,16 +176,17 @@ function buildLocalSummary(): SummaryBlock[] {
     content: `本次访谈共 ${segs.length} 段对话，涉及 ${speakers.size} 位发言人。`
   })
 
+  const cap = LOCAL_SUMMARY_BULLET_CAP
   for (const [speaker, texts] of speakers) {
     blocks.push({ type: 'subTitle', content: `${speaker} 发言内容` })
     const sentences = texts.flatMap(t =>
       t.split(/[。！？；]/).map(s => s.trim()).filter(s => s.length > 1)
     )
-    if (sentences.length <= 5) {
+    if (sentences.length <= cap) {
       blocks.push({ type: 'bodyBullets', items: sentences.length ? sentences : [texts.join('')] })
     } else {
-      blocks.push({ type: 'bodyBullets', items: sentences.slice(0, 5) })
-      blocks.push({ type: 'body', content: `……共 ${sentences.length} 条发言` })
+      blocks.push({ type: 'bodyBullets', items: sentences.slice(0, cap) })
+      blocks.push({ type: 'body', content: `……其余 ${sentences.length - cap} 句已省略，配置 AI 后可生成完整归纳。` })
     }
   }
 
@@ -203,14 +214,24 @@ async function fetchSummaryFromApi(): Promise<SummaryBlock[]> {
         {
           role: 'system',
           content:
-            '你是擅长提炼访谈记录的资深学者，擅长提炼访谈记录的核心要点并生成结构清晰的总结报告。请用中文回复，格式要求：\n# 一级标题\n## 二级标题\n正文段落\n- 列表项'
+            '你是擅长归纳长篇访谈的分析师。请用中文输出，尽量写全：覆盖对话中的关键事实、观点分歧、待办与风险；避免只写一两句概括。\n' +
+            '结构要求（Markdown）：\n' +
+            '# 访谈综述（2～4 句）\n' +
+            '## 核心要点\n' +
+            '- 用 5～10 条要点列出（可随材料增多）\n' +
+            '## 细节与引用\n' +
+            '适当展开重要片段；若无则写「暂无」。\n' +
+            '## 后续建议（如有）\n' +
+            '使用 # / ## / 正文 / - 列表，勿输出代码块。'
         },
         {
           role: 'user',
-          content: `请对以下访谈记录进行总结，生成一份结构清晰的访谈总结报告：\n\n${text}`
+          content:
+            '以下为当前访谈转写（可能仍在增长）。请基于已有内容做尽可能完整的总结，不要因篇幅而过度省略：\n\n' +
+            text
         }
       ],
-      { maxTokens: 2000 }
+      { maxTokens: 3500, temperature: 0.5 }
     )
     return parseMarkdownToBlocks(raw)
   } catch (e) {
@@ -334,10 +355,14 @@ function scheduleDebouncedSummary() {
   if (props.recorderStatus !== 'recording' && props.recorderStatus !== 'paused') return
   if (!props.segments.length && !props.interimText?.trim()) return
   clearDebounce()
-  const delay = hasSummaryContentOnce.value ? DEBOUNCE_MS : 8_000
+  const delay = hasSummaryContentOnce.value ? DEBOUNCE_MS : FIRST_DEBOUNCE_MS
   debounceTimer = setTimeout(() => {
     debounceTimer = null
-    if (props.segments.length >= 2 || hasSummaryContentOnce.value) {
+    if (
+      hasSummaryContentOnce.value ||
+      props.segments.length >= 1 ||
+      Boolean(props.interimText?.trim())
+    ) {
       requestSummary()
     }
   }, delay)
@@ -386,7 +411,7 @@ const emptyHintText = computed(() => {
     (props.recorderStatus === 'recording' || props.recorderStatus === 'paused') &&
     (props.segments.length || props.interimText?.trim())
   ) {
-    return '要点与右侧「访谈字幕」同源；定稿句与正在识别行均会参与总结。'
+    return '要点与右侧「访谈字幕」同源；约 5 秒首条、之后约 8 秒随字幕刷新（定稿与正在识别均参与）。'
   }
   return '开始录音后，AI 将根据访谈字幕在此处展示要点。'
 })
@@ -428,12 +453,13 @@ watch(
 
 watch(
   () => props.recorderStatus,
-  s => {
+  (s, oldStatus) => {
     if (props.isViewingHistory) return
-    if (s === 'stopped' && buildTranscriptText()) {
-      clearDebounce()
-      requestSummary()
-    }
+    if (s !== 'stopped' || !buildTranscriptText()) return
+    /** 仅「录音中/暂停 → 停止」时拉终稿总结；重进页面时若已是 stopped 不再请求 AI */
+    if (oldStatus !== 'recording' && oldStatus !== 'paused') return
+    clearDebounce()
+    requestSummary()
   }
 )
 
@@ -459,7 +485,13 @@ watch(
 )
 
 watch(
-  () => [props.isViewingHistory, props.segments, props.storedSummaryBlocks] as const,
+  () =>
+    [
+      props.isViewingHistory,
+      props.segments,
+      props.storedSummaryBlocks,
+      props.suppressHistorySummaryRequest
+    ] as const,
   () => {
     if (!props.isViewingHistory) return
     if (!props.segments.length) {
@@ -485,6 +517,13 @@ watch(
           second: '2-digit'
         })
       }
+      return
+    }
+    if (props.suppressHistorySummaryRequest) {
+      summaryResult.value = null
+      hasSummaryContentOnce.value = false
+      lastHistorySig = sig
+      lastSyncMeta.value = null
       return
     }
     if (sig === lastHistorySig) return
@@ -541,6 +580,7 @@ defineExpose({
   endRegenerateHistory
 })
 
+/** 实时总结：录音/暂停中字幕变化触发防抖（首约 5s、后续约 8s）；刷新/重进只恢复 session，不额外请求 AI */
 onMounted(() => {
   if (!props.isViewingHistory) restoreSummaryFromSession()
 })

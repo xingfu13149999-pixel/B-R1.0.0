@@ -34,8 +34,8 @@
         </div>
       </div>
 
-      <!-- Figma 1:1539 分离-横：公司信息与一页纸之间分隔线 -->
-      <div class="content-header-divider" />
+      <!-- 与项目页一致：头部与下方内容分隔线边距（见 ProjectHome content-header-divider--project） -->
+      <div class="content-header-divider content-header-divider--project" />
 
       <!-- 一页纸 / 公司资料：Figma 头部 1:1239 一比一 -->
       <div class="tabs-row">
@@ -216,6 +216,11 @@ function toggleTree(key: keyof typeof expandedTree) {
   margin: 28px 0 20px 0;
 }
 
+/* 与项目页头部区域纵向节奏一致 */
+.content-header-divider--project {
+  margin: 20px 0 16px 0;
+}
+
 .company-header {
   display: flex;
   align-items: flex-start;
@@ -331,7 +336,7 @@ function toggleTree(key: keyof typeof expandedTree) {
 }
 
 .company-name {
-  margin: 0 0 8px;
+  margin: 6px 0 5px;
   font-size: 24px;
   font-weight: 700;
   color: #21243d;
