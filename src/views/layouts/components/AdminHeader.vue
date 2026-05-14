@@ -1,13 +1,13 @@
-<!--
+﻿<!--
   顶栏：Logo、标语、AI 助手入口、设备/主题/用户菜单；事件向 AdminLayout 上抛。
 -->
 <template>
   <header class="top-header">
-    <div class="header-left">
+    <button type="button" class="header-left" @click="emit('go-home')">
       <img class="header-logo" :src="headerLogo" alt="语纪" />
       <img class="header-divider" :src="headerDivider" alt="" />
       <span class="header-slogan">语之所及 纪之成册</span>
-    </div>
+    </button>
     <div class="header-right">
       <button
         type="button"
@@ -15,14 +15,26 @@
         :class="{ 'header-ai-btn--active': aiPanelOpen }"
         @click="emit('open-ai-panel')"
       >
-        <img class="header-ai-icon" :src="aiPanelOpen ? headerIconAiActive : headerIconAi" alt="" />
+        <img class="header-ai-icon" :src="headerIconAi" alt="" />
         <span>AI助手</span>
       </button>
-      <button type="button" class="header-icon-btn" aria-label="设备管理">
+      <button
+        type="button"
+        class="header-icon-btn"
+        :class="{ 'header-icon-btn--selected': deviceRouteActive }"
+        aria-label="设备管理"
+        @click="emit('open-device-management')"
+      >
         <img class="header-icon-default" :src="headerIconDevice" alt="" />
         <img class="header-icon-active" :src="headerIconDeviceActive" alt="" />
       </button>
-      <button type="button" class="header-icon-btn" aria-label="用户管理">
+      <button
+        type="button"
+        class="header-icon-btn"
+        :class="{ 'header-icon-btn--selected': userRouteActive }"
+        aria-label="用户管理"
+        @click="emit('open-user-management')"
+      >
         <img class="header-icon-default" :src="headerIconUser" alt="" />
         <img class="header-icon-active" :src="headerIconUserActive" alt="" />
       </button>
@@ -73,7 +85,6 @@ import { ref } from 'vue'
 import headerLogo from '@/assets/images/header/logo.png'
 import headerDivider from '@/assets/images/header/divider.svg'
 import headerIconAi from '@/assets/images/header/icon-ai.png'
-import headerIconAiActive from '@/assets/images/header/icon-ai-active.png'
 import headerIconDevice from '@/assets/images/header/icon-device.svg'
 import headerIconDeviceActive from '@/assets/images/header/icon-device-active.svg'
 import headerIconUser from '@/assets/images/header/icon-user.svg'
@@ -87,10 +98,15 @@ defineProps<{
   aiPanelOpen: boolean
   currentUserName: string
   darkMode: boolean
+  deviceRouteActive: boolean
+  userRouteActive: boolean
 }>()
 
 const emit = defineEmits<{
+  'go-home': []
   'open-ai-panel': []
+  'open-device-management': []
+  'open-user-management': []
   logout: []
   'toggle-dark-mode': []
 }>()
@@ -118,6 +134,11 @@ function handleUserDropdownVisible(visible: boolean) {
   display: flex;
   align-items: center;
   gap: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
 }
 
 .header-logo {
@@ -145,6 +166,12 @@ function handleUserDropdownVisible(visible: boolean) {
   color: #21243d;
   letter-spacing: 0.32px;
   white-space: nowrap;
+}
+
+.header-left:hover .header-slogan,
+.header-left:active .header-slogan,
+.header-left:focus-visible .header-slogan {
+  color: #21243d;
 }
 
 .header-right {
@@ -178,7 +205,7 @@ function handleUserDropdownVisible(visible: boolean) {
 }
 
 .header-ai-btn--active {
-  background: linear-gradient(135deg, #2036ca 0%, #5b6cfb 100%);
+  background: linear-gradient(69.83deg, #2036ca 0%, #425eff 104.65%);
   border-color: transparent;
   color: #fff;
 }
@@ -229,7 +256,8 @@ function handleUserDropdownVisible(visible: boolean) {
 }
 
 .header-icon-btn:hover,
-.header-icon-btn:active {
+.header-icon-btn:active,
+.header-icon-btn--selected {
   background: #2036ca;
 }
 
@@ -361,3 +389,5 @@ function handleUserDropdownVisible(visible: boolean) {
   background: #1a2da8;
 }
 </style>
+
+

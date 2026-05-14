@@ -5,8 +5,8 @@
   <el-dialog
     v-model="dialogVisible"
     :show-close="false"
+    align-center
     width="740px"
-    top="266px"
     class="add-project-dialog"
     modal-class="add-project-overlay"
   >
@@ -300,6 +300,12 @@ const handleConfirm = async () => {
   border-radius: 4px;
   border: 1px solid #d9d9d9;
   box-shadow: none;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+  box-sizing: border-box;
+  min-height: 30px;
+  height: 42px;
 }
 
 .project-form :deep(.el-select__selection) {

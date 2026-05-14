@@ -5,6 +5,7 @@
   --design-width: 1920px;
   --design-height: 1080px;
   --primary-color: #2036ca;
+  --dialog-focus-color: #2036ca;
   --sidebar-width: 280px;
   --header-height: 77px;
 
@@ -57,4 +58,14 @@ html, body, #app {
 #app {
   min-width: 1280px;
   margin: 0 auto;
+}
+
+.el-dialog .el-input__wrapper.is-focus,
+.el-dialog .el-select__wrapper.is-focused {
+  box-shadow: 0 0 0 1px var(--dialog-focus-color) inset !important;
+}
+
+.el-dialog .el-textarea__inner:focus {
+  border-color: var(--dialog-focus-color) !important;
+  box-shadow: 0 0 0 1px var(--dialog-focus-color) inset !important;
 }

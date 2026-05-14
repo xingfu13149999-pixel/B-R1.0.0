@@ -1,6 +1,5 @@
-<!--
-  左侧栏：集团/单一客户切换、搜索、客户树、右键菜单；选中项与 AdminLayout 路由联动。
--->
+﻿<!--
+  左侧栏：集团/单一客户切换、搜索、客户树、右键菜单；选中项与 AdminLayout 路由联动。-->
 <template>
   <aside class="left-sidebar" :class="{ 'left-sidebar--home': isHome }">
     <div class="customer-type-tabs">
@@ -44,12 +43,12 @@
         v-for="item in items"
         :key="item.id"
         class="customer-item"
-        :class="{ active: selectedId === item.id, expanded: expandedIds.has(item.id) }"
+        :class="{ active: visualSelectedId === item.id, expanded: expandedIds.has(item.id) }"
         @contextmenu="emitContextMenu($event, item, 'parent')"
       >
         <div
           class="customer-row"
-          :class="{ active: selectedId === item.id, expanded: expandedIds.has(item.id) }"
+          :class="{ active: visualSelectedId === item.id, expanded: expandedIds.has(item.id) }"
           @click="emit('select-customer', item)"
         >
           <img
@@ -69,9 +68,9 @@
             :key="child.id"
             class="customer-child"
             :class="{
-              active: selectedId === child.id,
-              'child-selected-primary': selectedId === child.id && index === 0,
-              'child-selected-secondary': selectedId === child.id && index > 0
+              active: visualSelectedId === child.id,
+              'child-selected-primary': visualSelectedId === child.id && index === 0,
+              'child-selected-secondary': visualSelectedId === child.id && index > 0
             }"
             @click.stop="emit('select-customer', child)"
             @contextmenu.stop="emitContextMenu($event, child, 'child')"
@@ -79,7 +78,7 @@
             <img
               class="child-icon-img"
               :src="
-                selectedId === child.id
+                visualSelectedId === child.id
                   ? index === 0
                     ? iconCompanySelected
                     : iconDocSelected
@@ -132,8 +131,20 @@
       </button>
       <button
         type="button"
+        class="report-btn report-btn--note"
+        :class="{ 'report-btn--active': noteRouteActive }"
+        @click="emit('open-my-notes')"
+      >
+        <img class="report-btn-icon" :src="iconNote" alt="" />
+        <span>我的笔记</span>
+      </button>
+      <button
+        type="button"
         class="interview-btn"
-        :class="{ 'interview-btn--disabled': !canStartInterview }"
+        :class="{
+          'interview-btn--disabled': !canStartInterview,
+          'interview-btn--inactive': noteRouteActive
+        }"
         :disabled="!canStartInterview"
         :title="
           canStartInterview ? '' : '访谈仅针对项目：请在左侧展开客户后，点击具体项目（非公司节点）'
@@ -160,6 +171,7 @@ import iconAdd from '@/assets/images/sidebar/icon-add.svg'
 import iconAddProject from '@/assets/images/sidebar/icon-add-project.svg'
 import iconSearch from '@/assets/images/sidebar/icon-search.svg'
 import iconReport from '@/assets/images/sidebar/icon-report.svg'
+import iconNote from '@/assets/images/sidebar/icon-my-note.svg'
 import iconMic from '@/assets/images/sidebar/icon-mic.svg'
 import iconEdit from '@/assets/images/sidebar/icon-edit.svg'
 import iconDelete from '@/assets/images/sidebar/icon-delete.svg'
@@ -206,6 +218,10 @@ const props = defineProps({
   contextMenu: {
     type: Object as PropType<SidebarContextMenuState>,
     required: true
+  },
+  noteRouteActive: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -223,6 +239,7 @@ const emit = defineEmits<{
   'add-project-context-menu': []
   'add-child-context-menu': []
   'delete-context-menu': []
+  'open-my-notes': []
 }>()
 
 const searchKeywordValue = computed({
@@ -230,7 +247,9 @@ const searchKeywordValue = computed({
   set: value => emit('update:searchKeyword', value)
 })
 
-/** 仅当选中「项目」子节点（非公司客户行）时可进入访谈，与路由 HomeProject / Interview 一致 */
+const visualSelectedId = computed(() => (props.noteRouteActive ? '' : props.selectedId))
+
+/** 仅当选中“项目”子节点（非公司客户行）时可进入访谈，与路由 HomeProject / Interview 一致。 */
 const canStartInterview = computed(() =>
   Boolean(props.selectedId && isProjectRouteTarget(props.items, props.selectedId))
 )
@@ -243,7 +262,7 @@ function emitContextMenu(
   emit('open-context-menu', { event, item, type })
 }
 
-/** 与 InterviewStart 约定：仅侧栏点击进入时带此标记，整页刷新不会带，避免 F5 误清 session */
+/** 与 InterviewStart 约定：仅侧栏点击进入时带此标记，整页刷新不会带，避免 F5 误清 session。 */
 const INTERVIEW_SIDEBAR_FRESH_INTENT_KEY = 'pd-interview-sidebar-fresh-intent'
 
 function goInterview() {
@@ -258,7 +277,7 @@ function goInterview() {
   }
   router.push({
     name: 'Interview',
-    /** 与 InterviewStart 约定：每次点击带不同 fresh 时间戳，同页复用组件时也能触发清 session */
+    /** 与 InterviewStart 约定：每次点击带不同 fresh 时间戳，同页复用组件时也能触发清 session。 */
     query: nodeId ? { nodeId, fresh: String(Date.now()) } : {}
   })
 }
@@ -417,10 +436,12 @@ function goInterview() {
 .customer-row {
   display: flex;
   align-items: center;
-  padding: 8px 8px;
+  padding: 4px 8px;
   cursor: pointer;
   gap: 10px;
-  min-height: 40px;
+  box-sizing: border-box;
+  height: 42px;
+  min-height: 42px;
   border-radius: 4px;
   transition:
     background 0.2s,
@@ -485,7 +506,7 @@ function goInterview() {
   padding: 4px;
   border-radius: 5px;
   min-width: 28px;
-  height: 22px;
+  height: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -515,8 +536,10 @@ function goInterview() {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 38px;
-  padding: 5px 22px;
+  box-sizing: border-box;
+  height: 42px;
+  min-height: 42px;
+  padding: 0 22px;
   font-size: 15px;
   line-height: 1;
   color: #2d3149;
@@ -588,6 +611,12 @@ function goInterview() {
   color: #2d3149;
 }
 
+.report-btn--active {
+  background: #2036ca;
+  color: #fff;
+}
+
+
 .report-btn-icon,
 .interview-btn-icon {
   width: 26px;
@@ -598,6 +627,11 @@ function goInterview() {
 .interview-btn {
   background: #2036ca;
   color: #fff;
+}
+
+.interview-btn--inactive {
+  background: #fff;
+  color: #2d3149;
 }
 
 .interview-btn:disabled,

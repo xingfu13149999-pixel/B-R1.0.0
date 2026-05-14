@@ -189,7 +189,7 @@ const projectHeaderMetrics = computed(() => {
   flex-shrink: 0;
   margin-left: auto;
   align-items: flex-start;
-  padding-top: 4px;
+  padding-top: 0;
 }
 
 .project-action-btn {

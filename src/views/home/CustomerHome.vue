@@ -25,7 +25,7 @@
               <img class="meta-icon meta-icon--time" :src="iconMetaTime" alt="" />
               <span class="meta-text">{{ customerHome.metaTime }}</span>
             </span>
-            <img class="header-meta-divider" :src="iconMetaDivider" alt="" />
+      <img class="header-meta-divider" :src="iconProgressDivider" alt="" />
             <span class="meta-item">
               <img class="meta-icon meta-icon--user" :src="iconMetaUser" alt="" />
               <span class="meta-text">{{ customerHome.metaUser }}</span>
@@ -136,7 +136,6 @@ import iconProgressDivider from '@/assets/images/home/icon-progress-divider.svg'
 import iconRefresh from '@/assets/images/home/icon-refresh.svg'
 import iconDownload from '@/assets/images/home/icon-download.svg'
 import iconMetaTime from '@/assets/images/home/icon-meta-time.svg'
-import iconMetaDivider from '@/assets/images/home/icon-meta-divider.svg'
 import iconMetaUser from '@/assets/images/home/icon-meta-user.svg'
 import iconDocSearch from '@/assets/images/home/doc-search.svg'
 import iconDocAdd from '@/assets/images/home/doc-add.svg'
@@ -478,11 +477,12 @@ function toggleTree(key: keyof typeof expandedTree) {
 
 .header-actions {
   margin-left: auto;
+  margin-right: -30px;
   display: flex;
   gap: 10px;
 }
 
-/* Figma 功能图标 1:1241/1:1244：40×36 白底 #c4c4c4 边圆角 5px，图标 16px */
+/* Figma 功能图标 1:1241/1:1244：40×36 白底 #c4c4c4 边圆角 5px，图标 16px；悬浮/按下为蓝底白图标 */
 .action-btn {
   width: 40px;
   height: 36px;
@@ -495,24 +495,31 @@ function toggleTree(key: keyof typeof expandedTree) {
   background: #fff;
   cursor: pointer;
   flex-shrink: 0;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .action-btn-icon {
   width: 16px;
   height: 16px;
   object-fit: contain;
+  transition: filter 0.15s ease;
 }
 
 .action-btn--download .action-btn-icon {
   height: 14px;
 }
 
-.action-btn:hover {
+.action-btn:hover,
+.action-btn:active {
+  background: #2036ca;
   border-color: #2036ca;
 }
 
-.action-btn:hover .action-btn-icon {
-  filter: brightness(0) saturate(100%) invert(25%) sepia(80%) saturate(1500%) hue-rotate(220deg);
+.action-btn:hover .action-btn-icon,
+.action-btn:active .action-btn-icon {
+  filter: brightness(0) invert(1);
 }
 
 .content-cards {
@@ -620,6 +627,10 @@ function toggleTree(key: keyof typeof expandedTree) {
   align-items: center;
 }
 
+.keyword-input :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #2036ca inset;
+}
+
 .keyword-input :deep(.el-input__inner) {
   font-size: 14px;
   line-height: 1.5;
@@ -637,7 +648,7 @@ function toggleTree(key: keyof typeof expandedTree) {
   object-fit: contain;
 }
 
-/* Figma 添加按钮：38×38 白底灰边，图标 14px，与搜索框同高 */
+/* Figma 添加按钮：38×38 白底灰边，图标 14px，与搜索框同高；悬浮/按下与一页纸 action-btn 一致：蓝底白图标 */
 .right-add-btn {
   width: 38px;
   height: 38px;
@@ -652,17 +663,27 @@ function toggleTree(key: keyof typeof expandedTree) {
   cursor: pointer;
   flex-shrink: 0;
   box-sizing: border-box;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .right-add-icon {
   width: 14px;
   height: 14px;
   object-fit: contain;
+  transition: filter 0.15s ease;
 }
 
-.right-add-btn:hover {
+.right-add-btn:hover,
+.right-add-btn:active {
+  background: #2036ca;
   border-color: #2036ca;
-  background: #f5f7ff;
+}
+
+.right-add-btn:hover .right-add-icon,
+.right-add-btn:active .right-add-icon {
+  filter: brightness(0) invert(1);
 }
 
 .doc-tree {

@@ -7,6 +7,9 @@ import ProjectHome from '../views/home/ProjectHome.vue'
 import CreditReport from '../views/home/CreditReport.vue'
 import InterviewRecordsPage from '../views/home/InterviewRecordsPage.vue'
 import InterviewStart from '../views/home/InterviewStart.vue'
+import DeviceManagement from '../views/device/DeviceManagement.vue'
+import UserManagement from '../views/user/UserManagement.vue'
+import MyNotesPage from '../views/notes/MyNotesPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -50,6 +53,21 @@ const router = createRouter({
           name: 'CreditReport',
           component: CreditReport,
           props: true
+        },
+        {
+          path: 'device-management',
+          name: 'DeviceManagement',
+          component: DeviceManagement
+        },
+        {
+          path: 'user-management',
+          name: 'UserManagement',
+          component: UserManagement
+        },
+        {
+          path: 'my-notes',
+          name: 'MyNotes',
+          component: MyNotesPage
         }
       ]
     }

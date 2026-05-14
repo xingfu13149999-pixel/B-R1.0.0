@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>语音模块沙箱 - 测试环境</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f7fa;
+    }
+    h1 { color: #2036ca; }
+    h2 { color: #21243d; border-bottom: 2px solid #2036ca; padding-bottom: 8px; }
+    .test-section {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .test-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+    }
+    .test-item:last-child { border-bottom: none; }
+    .status { font-weight: bold; }
+    .status.pass { color: #00baad; }
+    .status.fail { color: #fe635d; }
+    .status.pending { color: #ff8d1a; }
+    button {
+      background: #2036ca;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover { background: #1a2db8; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    .log {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 16px;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 13px;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+    .mock-audio-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ccc;
+    }
+    .mock-audio-indicator.active { background: #00baad; animation: pulse 1s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+  <h1>🎙️ 语音模块沙箱测试</h1>
+  <p>此沙箱用于独立开发和测试语音模块优化，不影响主项目代码。</p>
+
+  <div class="test-section">
+    <h2>1. 录音功能测试</h2>
+    <div class="test-item">
+      <span class="mock-audio-indicator" id="micIndicator"></span>
+      <span>麦克风状态</span>
+      <span id="micStatus" class="status pending">等待初始化...</span>
+      <button id="initMic" onclick="initMicrophone()">初始化麦克风</button>
+      <button id="startRecord" onclick="startRecording()" disabled>开始录音</button>
+      <button id="pauseRecord" onclick="pauseRecording()" disabled>暂停</button>
+      <button id="stopRecord" onclick="stopRecording()" disabled>停止</button>
+    </div>
+    <div class="test-item">
+      <span>录音时长</span>
+      <span id="recordDuration" class="status">00:00:00</span>
+      <span>波形状态</span>
+      <span id="waveformStatus" class="status">--</span>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>2. 转写功能测试</h2>
+    <div class="test-item">
+      <span>转写状态</span>
+      <span id="transcribeStatus" class="status pending">未开始</span>
+      <button id="startTranscribe" onclick="startTranscription()" disabled>开始转写</button>
+      <button id="stopTranscribe" onclick="stopTranscription()" disabled>停止转写</button>
+    </div>
+    <div class="test-item">
+      <span>实时字幕</span>
+      <div id="liveSubtitles" style="flex:1; background:#f9f9f9; padding:8px; border-radius:4px; min-height:60px;">
+        <em style="color:#999">字幕将显示在这里...</em>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>3. AI 增强功能测试</h2>
+    <div class="test-item">
+      <span>API Key 状态</span>
+      <span id="apiKeyStatus" class="status">检测中...</span>
+    </div>
+    <div class="test-item">
+      <button id="testPolish" onclick="testPolish()" disabled>测试标点补全</button>
+      <button id="testSummary" onclick="testSummary()" disabled>测试总结生成</button>
+      <button id="testKeywords" onclick="testKeywords()" disabled>测试关键词提取</button>
+    </div>
+    <div id="aiResults" class="log" style="margin-top:12px;">AI 测试结果将显示在这里...</div>
+  </div>
+
+  <div class="test-section">
+    <h2>4. 数据持久化测试</h2>
+    <div class="test-item">
+      <button onclick="testLocalStorage()">测试 localStorage</button>
+      <button onclick="testSessionStorage()">测试 sessionStorage</button>
+      <button onclick="clearAllStorage()">清除所有缓存</button>
+    </div>
+    <div id="storageResults" class="log" style="margin-top:12px;">存储测试结果...</div>
+  </div>
+
+  <div class="test-section">
+    <h2>5. 控制台日志</h2>
+    <div id="console" class="log">沙箱已就绪...</div>
+  </div>
+
+  <script type="module">
+    // 沙箱模块导入
+    import { enrichTranscriptPunctuation, splitTranscriptSentences } from './src/utils/interviewTranscript.js';
+    import { extractKeywords } from './src/utils/interviewKeywordExtract.js';
+
+    // 暴露到全局
+    window.enrichTranscriptPunctuation = enrichTranscriptPunctuation;
+    window.splitTranscriptSentences = splitTranscriptSentences;
+    window.extractKeywords = extractKeywords;
+    window.log = (...args) => {
+      const console = document.getElementById('console');
+      const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : a).join(' ');
+      console.textContent += '\n' + new Date().toLocaleTimeString() + ' ' + msg;
+      console.scrollTop = console.scrollHeight;
+    };
+  </script>
+
+  <script>
+    // 检测 API Key
+    function checkApiKey() {
+      // 沙箱环境尝试从 localStorage 读取或使用示例 key
+      const key = localStorage.getItem('SANDBOX_DEEPSEEK_KEY') || 'sk-sandbox-test';
+      return key !== 'sk-sandbox-test' ? key : null;
+    }
+
+    // 初始化麦克风
+    async function initMicrophone() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        window.sandboxStream = stream;
+        document.getElementById('micStatus').textContent = '已授权';
+        document.getElementById('micStatus').className = 'status pass';
+        document.getElementById('micIndicator').classList.add('active');
+        document.getElementById('initMic').disabled = true;
+        document.getElementById('startRecord').disabled = false;
+        log('麦克风初始化成功');
+      } catch (e) {
+        document.getElementById('micStatus').textContent = '授权失败: ' + e.message;
+        document.getElementById('micStatus').className = 'status fail';
+        log('麦克风初始化失败:', e.message);
+      }
+    }
+
+    // 模拟录音状态
+    let isRecording = false;
+    let isPaused = false;
+    let recordStartTime = 0;
+    let durationTimer = null;
+
+    function startRecording() {
+      isRecording = true;
+      isPaused = false;
+      recordStartTime = Date.now();
+      document.getElementById('micStatus').textContent = '录音中';
+      document.getElementById('micStatus').className = 'status pass';
+      document.getElementById('startRecord').disabled = true;
+      document.getElementById('pauseRecord').disabled = false;
+      document.getElementById('stopRecord').disabled = false;
+      document.getElementById('waveformStatus').textContent = '波形动画运行中...';
+      log('录音已开始');
+
+      // 更新时长
+      durationTimer = setInterval(() => {
+        const elapsed = Date.now() - recordStartTime;
+        const h = String(Math.floor(elapsed / 3600000)).padStart(2, '0');
+        const m = String(Math.floor((elapsed % 3600000) / 60000)).padStart(2, '0');
+        const s = String(Math.floor((elapsed % 60000) / 1000)).padStart(2, '0');
+        document.getElementById('recordDuration').textContent = `${h}:${m}:${s}`;
+      }, 100);
+
+      // 启用转写
+      document.getElementById('startTranscribe').disabled = false;
+    }
+
+    function pauseRecording() {
+      if (!isPaused) {
+        isPaused = true;
+        clearInterval(durationTimer);
+        document.getElementById('micStatus').textContent = '已暂停';
+        document.getElementById('micStatus').className = 'status pass';
+        document.getElementById('pauseRecord').textContent = '继续';
+        document.getElementById('waveformStatus').textContent = '波形已暂停';
+        log('录音已暂停');
+      } else {
+        isPaused = false;
+        recordStartTime = Date.now() - (parseInt(document.getElementById('recordDuration').textContent.split(':')[0]) * 3600 +
+          parseInt(document.getElementById('recordDuration').textContent.split(':')[1]) * 60 +
+          parseInt(document.getElementById('recordDuration').textContent.split(':')[2])) * 1000;
+        durationTimer = setInterval(() => {
+          const elapsed = Date.now() - recordStartTime;
+          const h = String(Math.floor(elapsed / 3600000)).padStart(2, '0');
+          const m = String(Math.floor((elapsed % 3600000) / 60000)).padStart(2, '0');
+          const s = String(Math.floor((elapsed % 60000) / 1000)).padStart(2, '0');
+          document.getElementById('recordDuration').textContent = `${h}:${m}:${s}`;
+        }, 100);
+        document.getElementById('micStatus').textContent = '录音中';
+        document.getElementById('micStatus').className = 'status pass';
+        document.getElementById('pauseRecord').textContent = '暂停';
+        document.getElementById('waveformStatus').textContent = '波形动画运行中...';
+        log('录音已继续');
+      }
+    }
+
+    function stopRecording() {
+      isRecording = false;
+      isPaused = false;
+      clearInterval(durationTimer);
+      document.getElementById('micStatus').textContent = '已停止';
+      document.getElementById('micStatus').className = 'status';
+      document.getElementById('startRecord').disabled = false;
+      document.getElementById('pauseRecord').disabled = true;
+      document.getElementById('stopRecord').disabled = true;
+      document.getElementById('pauseRecord').textContent = '暂停';
+      document.getElementById('waveformStatus').textContent = '--';
+      document.getElementById('startTranscribe').disabled = true;
+      document.getElementById('stopTranscribe').disabled = true;
+      log('录音已停止');
+    }
+
+    // 模拟转写
+    let isTranscribing = false;
+    let transcriptTimer = null;
+    const mockTranscript = [
+      '今天我们来看一下这个项目的进展情况',
+      '根据上次的讨论 我们已经完成了第一阶段的开发',
+      '接下来需要重点关注的是用户体验优化',
+      '还有就是性能方面的问题需要尽快解决'
+    ];
+    let transcriptIndex = 0;
+
+    function startTranscription() {
+      isTranscribing = true;
+      transcriptIndex = 0;
+      document.getElementById('transcribeStatus').textContent = '转写中';
+      document.getElementById('transcribeStatus').className = 'status pass';
+      document.getElementById('startTranscribe').disabled = true;
+      document.getElementById('stopTranscribe').disabled = false;
+      log('转写已开始');
+
+      // 模拟实时字幕
+      transcriptTimer = setInterval(() => {
+        if (transcriptIndex < mockTranscript.length) {
+          const subtitle = document.getElementById('liveSubtitles');
+          const text = mockTranscript[transcriptIndex];
+
+          // 调用本地标点补全
+          const punctuated = window.enrichTranscriptPunctuation(text, { mode: 'full' });
+          const sentences = window.splitTranscriptSentences(punctuated);
+
+          subtitle.innerHTML = sentences.map((s, i) =>
+            `<div style="padding:4px 0; border-bottom:1px solid #eee;">
+              <span style="color:#2036ca; font-size:12px;">发言人${i % 2 + 1} · ${new Date().toLocaleTimeString()}</span>
+              <p style="margin:4px 0;">${s}</p>
+            </div>`
+          ).join('') + subtitle.innerHTML;
+
+          transcriptIndex++;
+        } else {
+          clearInterval(transcriptTimer);
+        }
+      }, 2000);
+    }
+
+    function stopTranscription() {
+      isTranscribing = false;
+      clearInterval(transcriptTimer);
+      document.getElementById('transcribeStatus').textContent = '已停止';
+      document.getElementById('transcribeStatus').className = 'status';
+      document.getElementById('startTranscribe').disabled = false;
+      document.getElementById('stopTranscribe').disabled = true;
+      log('转写已停止');
+    }
+
+    // AI 功能测试
+    function testPolish() {
+      const testText = '今天我们来看一下这个项目的进展情况根据上次的讨论我们已经完成了第一阶段的开发';
+      const result = window.enrichTranscriptPunctuation(testText, { mode: 'full' });
+      document.getElementById('aiResults').textContent = '输入: ' + testText + '\n\n输出: ' + result;
+      log('标点补全测试完成');
+    }
+
+    function testSummary() {
+      const segments = mockTranscript.map((t, i) => ({
+        id: i,
+        text: t,
+        timeMs: i * 60000,
+        speakerLabel: '发言人' + (i % 2 + 1)
+      }));
+      document.getElementById('aiResults').textContent =
+        '测试摘要:\n\n共 ' + segments.length + ' 段对话\n\n' +
+        segments.map(s => s.speakerLabel + '：' + s.text).join('\n');
+      log('总结功能测试完成');
+    }
+
+    function testKeywords() {
+      const text = mockTranscript.join('');
+      const keywords = window.extractKeywords(text);
+      document.getElementById('aiResults').textContent = '提取的关键词: ' + keywords.join(', ');
+      log('关键词提取测试完成');
+    }
+
+    // 存储测试
+    function testLocalStorage() {
+      const testKey = 'sandbox_test';
+      const testData = { time: Date.now(), version: '1.0' };
+      localStorage.setItem(testKey, JSON.stringify(testData));
+      const read = JSON.parse(localStorage.getItem(testKey) || '{}');
+      document.getElementById('storageResults').textContent =
+        'localStorage 测试:\n写入: ' + JSON.stringify(testData) + '\n读取: ' + JSON.stringify(read) +
+        '\n匹配: ' + (read.time === testData.time ? '✓' : '✗');
+      log('localStorage 测试完成');
+    }
+
+    function testSessionStorage() {
+      const testKey = 'sandbox_session_test';
+      const testData = { time: Date.now(), session: 'test' };
+      sessionStorage.setItem(testKey, JSON.stringify(testData));
+      const read = JSON.parse(sessionStorage.getItem(testKey) || '{}');
+      document.getElementById('storageResults').textContent =
+        'sessionStorage 测试:\n写入: ' + JSON.stringify(testData) + '\n读取: ' + JSON.stringify(read) +
+        '\n匹配: ' + (read.time === testData.time ? '✓' : '✗');
+      log('sessionStorage 测试完成');
+    }
+
+    function clearAllStorage() {
+      // 只清除沙箱相关的 key
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('sandbox_')) keysToRemove.push(key);
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      document.getElementById('storageResults').textContent = '已清除 ' + keysToRemove.length + ' 个沙箱缓存';
+      log('缓存清除完成');
+    }
+
+    // 初始化
+    (function init() {
+      // 检查 API Key 状态
+      const hasKey = checkApiKey();
+      const apiKeyEl = document.getElementById('apiKeyStatus');
+      if (hasKey) {
+        apiKeyEl.textContent = '已配置 ✓';
+        apiKeyEl.className = 'status pass';
+      } else {
+        apiKeyEl.textContent = '使用本地回退模式（无 API Key）';
+        apiKeyEl.className = 'status pending';
+      }
+
+      // 设置 AI 测试按钮状态
+      document.getElementById('testPolish').disabled = false;
+      document.getElementById('testSummary').disabled = false;
+      document.getElementById('testKeywords').disabled = false;
+
+      log('沙箱初始化完成');
+      log('语音模块版本: 1.0.0-sandbox');
+      log('支持的功能: 录音、转写、标点补全、关键词提取、存储');
+    })();
+  </script>
+</body>
+</html>

@@ -1,20 +1,29 @@
-<!--
-  登录后主布局：顶栏 AdminHeader、左侧 AdminSidebar、右侧 main 内嵌 router-view。
-  首页类路由加 admin-layout--home 以显示背景图；侧栏树与弹窗增删改客户/项目逻辑在本文件。
--->
+<!-- 登录后的主布局：顶部为 AdminHeader，左侧为 AdminSidebar，右侧主区域承载 router-view；首页类路由显示首页背景，侧栏树和客户/项目弹窗逻辑也集中在这里。 -->
 <template>
-  <div class="admin-layout" :class="{ 'admin-layout--home': isHome }">
+  <div
+    class="admin-layout"
+    :class="{
+      'admin-layout--home': isHome,
+      'admin-layout--management': isManagementRoute
+    }"
+  >
     <AdminHeader
       :ai-panel-open="aiPanelOpen"
       :current-user-name="appStore.currentUser.name"
       :dark-mode="appStore.darkMode"
-      @open-ai-panel="aiPanelOpen = true"
+      :device-route-active="route.name === 'DeviceManagement'"
+      :user-route-active="route.name === 'UserManagement'"
+      @go-home="router.push({ name: 'Home' })"
+      @open-ai-panel="aiPanelOpen = !aiPanelOpen"
+      @open-device-management="router.push({ name: 'DeviceManagement' })"
+      @open-user-management="router.push({ name: 'UserManagement' })"
       @logout="router.push('/login')"
       @toggle-dark-mode="appStore.toggleDarkMode"
     />
 
     <div class="layout-body">
       <AdminSidebar
+        v-if="!isManagementRoute"
         :is-home="isHome"
         :customer-type="appStore.customerType"
         :search-keyword="searchKeyword"
@@ -22,6 +31,7 @@
         :selected-id="selectedId"
         :expanded-ids="expandedIds"
         :context-menu="contextMenu"
+        :note-route-active="route.name === 'MyNotes'"
         @update:search-keyword="searchKeyword = $event"
         @set-customer-type="appStore.setCustomerType"
         @show-add-customer="showAddDialog"
@@ -33,19 +43,18 @@
         @add-project-context-menu="onContextMenuAddProject"
         @add-child-context-menu="onContextMenuAddChild"
         @delete-context-menu="onContextMenuDelete"
+        @open-my-notes="router.push({ name: 'MyNotes' })"
       />
 
-      <main class="main-content">
-        <!-- 不使用 opacity 过渡：项目页 ↔ 访谈记录/授信报告 互跳时淡出会露出主区域底色，易感知为闪烁 -->
+      <main class="main-content" :class="{ 'main-content--device': isManagementRoute }">
+        <!-- 这里不使用 opacity 过渡，避免项目页切到访谈记录/授信报告时露出主区域底色，造成闪烁感。 -->
         <router-view v-slot="{ Component }">
           <component :is="Component" v-if="Component" :key="route.fullPath" />
         </router-view>
       </main>
     </div>
 
-    <el-dialog v-model="aiPanelOpen" title="AI助手" width="400px" append-to-body>
-      <p>AI 助手功能开发中。</p>
-    </el-dialog>
+    <AiAssistantPanel :visible="aiPanelOpen" @update:visible="aiPanelOpen = $event" />
 
     <AddCustomerDialog v-model:visible="addDialogVisible" @success="handleAddSuccess" />
     <AddCustomerDialog
@@ -71,8 +80,8 @@
       :show-close="false"
       :close-on-click-modal="false"
       :close-on-press-escape="false"
+      align-center
       width="640px"
-      top="184px"
       class="delete-confirm-dialog"
       modal-class="delete-confirm-overlay"
       @closed="handleDeleteCancel"
@@ -128,6 +137,7 @@ import { useAppStore } from '@/stores/app'
 import deleteDialogCloseIcon from '@/assets/images/home/dialog-close-figma.svg'
 import AdminHeader from './components/AdminHeader.vue'
 import AdminSidebar from './components/AdminSidebar.vue'
+import AiAssistantPanel from './components/AiAssistantPanel.vue'
 
 interface SidebarContextMenuRequest {
   event: MouseEvent
@@ -144,7 +154,7 @@ const searchKeyword = ref('')
 const addDialogVisible = ref(false)
 const editDialogVisible = ref(false)
 const addProjectDialogVisible = ref(false)
-/** 右键「新增项目」时解析出的父客户 id，关闭弹窗时清空 */
+/** 右键“新增项目”时解析出的父客户 id，关闭弹窗时清空 */
 const addProjectParentCustomerId = ref<string | null>(null)
 const editProjectDialogVisible = ref(false)
 const deleteDialogVisible = ref(false)
@@ -155,7 +165,7 @@ const editingProjectData = ref<Partial<ProjectForm> | null>(null)
 const deletingCustomerId = ref<string | null>(null)
 const deletingCustomerName = ref('')
 
-/** 与全屏访谈等页共用，勿在别处再 createInitialCustomerList */
+/** 与全屏访谈等页面共用，不要在别处重新创建初始客户树 */
 const customerList = liveCustomerTreeItems
 
 function routeProjectIdParam(): string {
@@ -164,7 +174,7 @@ function routeProjectIdParam(): string {
   return typeof projectId === 'string' ? projectId : ''
 }
 
-/** 与 URL 一致，避免从全屏访谈返回后侧栏仍停在默认项 */
+/** 与 URL 保持一致，避免从全屏访谈返回后侧栏仍停在默认项 */
 function initialSidebarFromRoute(): { selectedId: string; expandedIds: Set<string> } {
   const n = route.name
   const pid = routeProjectIdParam()
@@ -196,12 +206,17 @@ const isHome = computed(
     route.name === 'Home' ||
     route.name === 'HomeProject' ||
     route.name === 'InterviewRecords' ||
-    route.name === 'CreditReport'
+    route.name === 'CreditReport' ||
+    route.name === 'MyNotes'
+)
+
+const isManagementRoute = computed(
+  () => route.name === 'DeviceManagement' || route.name === 'UserManagement'
 )
 
 const deleteDialogMessage = computed(() => {
   if (!deletingCustomerName.value) return ''
-  return `确定删除${deletingCustomerName.value}？删除后${deletingCustomerName.value}内的所有子客户和项目都会删除。请您确认是否继续？`
+  return `确定删除${deletingCustomerName.value}？删除后${deletingCustomerName.value}内的所有子客户和项目都会被删除。请您确认是否继续？`
 })
 
 const filteredCustomerList = computed(() =>
@@ -291,7 +306,7 @@ function onContextMenuAddProject() {
 }
 
 function onContextMenuAddChild() {
-  console.log('新增子客户:', contextMenu.value.targetItem)
+  console.log('新增子客户', contextMenu.value.targetItem)
   closeContextMenu()
 }
 
@@ -482,7 +497,7 @@ function ensureCompanyChildBeforeProject(parent: CustomerTreeItem) {
   if (parent.children.length === 0) {
     parent.children.push({
       id: `${parent.id}-c`,
-      name: parent.name.length > 16 ? `${parent.name.slice(0, 14)}…` : parent.name,
+      name: parent.name.length > 16 ? `${parent.name.slice(0, 14)}...` : parent.name,
       parentId: parent.id,
       creditCode: '',
       customerCode: '',
@@ -495,7 +510,7 @@ function handleAddProjectSuccess(data: ProjectForm) {
   const parentId = addProjectParentCustomerId.value
 
   if (!parentId) {
-    ElMessage.error('未找到所属客户，请从侧栏右键菜单再次选择「新增项目」')
+    ElMessage.error('未找到所属客户，请从侧栏右键菜单再次选择“新增项目”。')
     return
   }
 
@@ -555,6 +570,13 @@ watch(addProjectDialogVisible, visible => {
   background-position: center;
 }
 
+.admin-layout--management {
+  background-image: url('@/assets/images/home/bg.svg');
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+}
+
 .layout-body {
   flex: 1;
   min-height: 0;
@@ -571,6 +593,11 @@ watch(addProjectDialogVisible, visible => {
 }
 
 .admin-layout--home .main-content {
+  overflow: hidden;
+  background: transparent;
+}
+
+.main-content--device {
   overflow: hidden;
   background: transparent;
 }
@@ -640,7 +667,7 @@ watch(addProjectDialogVisible, visible => {
   display: flex;
   justify-content: flex-end;
   gap: 20px;
-  padding: 17px 28px 0 0;
+  padding: 17px 28px 20px 0;
 }
 
 .delete-cancel-btn,
@@ -678,3 +705,5 @@ watch(addProjectDialogVisible, visible => {
   background: rgba(0, 0, 0, 0.26);
 }
 </style>
+
+

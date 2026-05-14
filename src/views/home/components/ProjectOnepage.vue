@@ -286,7 +286,7 @@ const riskAssessment = computed(() => {
 
 .field-value {
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 400;
   color: #21243d;
   letter-spacing: 0.32px;
   line-height: normal;
@@ -314,7 +314,7 @@ const riskAssessment = computed(() => {
 
 .field-value--multiline {
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 400;
   color: #21243d;
   letter-spacing: 0.32px;
   line-height: normal;

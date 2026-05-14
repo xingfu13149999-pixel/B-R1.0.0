@@ -5,8 +5,8 @@
   <el-dialog
     v-model="dialogVisible"
     :show-close="false"
+    align-center
     width="740px"
-    top="266px"
     class="add-customer-dialog"
     modal-class="add-customer-overlay"
   >
@@ -273,8 +273,21 @@ const handleSave = async () => {
   padding: 8px 12px;
   border-radius: 4px;
   border: 1px solid #d9d9d9;
+  box-shadow: none;
+  box-sizing: border-box;
   font-size: 14px;
   color: #303030;
+  line-height: 22px;
+}
+
+.customer-form :deep(.el-textarea__inner:hover) {
+  border-color: #d9d9d9;
+}
+
+.customer-form :deep(.el-textarea__inner:focus) {
+  border-color: #2036ca;
+  box-shadow: 0 0 0 1px #2036ca inset;
+  outline: none;
 }
 
 .customer-form :deep(.el-textarea__inner::placeholder) {
