@@ -1,0 +1,6 @@
+<svg viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect y="2.29" width="19.43" height="13.71" rx="1" fill="url(#docUnselGrad)"/>
+<path d="M7.44 9.14H16.58M7.44 12.57H12.01" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M2 0.25H9.24C9.72 0.25 10.05 0.25 10.3 0.28C10.55 0.32 10.68 0.38 10.77 0.47C10.86 0.56 10.92 0.69 10.95 0.94C10.99 1.19 10.99 1.52 10.99 2V3.71C10.99 4.19 10.99 4.53 10.95 4.78C10.92 5.02 10.86 5.15 10.77 5.24C10.68 5.34 10.55 5.4 10.3 5.43C10.05 5.46 9.72 5.46 9.24 5.46H0.25V2C0.25 1.52 0.25 1.19 0.28 0.94C0.32 0.69 0.38 0.56 0.47 0.47C0.56 0.38 0.69 0.32 0.94 0.28C1.19 0.25 1.52 0.25 2 0.25Z" fill="#5B9BFF" fill-opacity="0.4" stroke="#62A5FF" stroke-width="0.5"/>
+<defs><linearGradient id="docUnselGrad" x1="0.23" y1="16" x2="21.35" y2="12.35"><stop stop-color="#73BCFF"/><stop offset="1" stop-color="#3366FF"/></linearGradient></defs>
+</svg>
